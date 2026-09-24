@@ -43,9 +43,8 @@ export class UserBots {
     ) {
       if (!getRoleList.includes("doctor")) {
         if (!Cache.get(`hasSentWarnDoc`)) {
-          Cache.del(`useVote`);
-          Cache.del(`mode`);
-          Cache.del(`target`);
+          Cache.set(`hasSentWarnDoc`, true);
+          this.clearSmode();
           Utils.sendMessageToAdmin(
             bot,
             `⚠️ <b>Perhatian!</b>\nTidak ada userbot yang memiliki role <b>doctor</b>, smode dibatalkan.`,
@@ -189,5 +188,14 @@ export class UserBots {
       Cache.set(`dead`, current + delta);
     });
     return this.deadUpdateQueue;
+  }
+
+  static clearSmode() {
+    Cache.del(`afkmodeHook`);
+    Cache.del(`afkmodeDet`);
+    Cache.del(`useVote`);
+    Cache.del(`mode`);
+    Cache.del(`target`);
+    Cache.del(`afkmodeDur`);
   }
 }

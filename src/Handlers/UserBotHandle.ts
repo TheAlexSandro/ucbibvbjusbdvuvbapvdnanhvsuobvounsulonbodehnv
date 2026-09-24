@@ -161,24 +161,21 @@ export class UserBotHandle {
       if (msg.text.includes("The Night Falls")) {
         Cache.set(`roleSepaDon`, true);
         Cache.del(`hasSent`);
-        Cache.del(`hasSentWarnDoc`);
         Cache.del(`hasSentWarnKill`);
       }
 
       if (msg.text.includes("#ADVERTISING") || msg.text.includes("Game over")) {
         if (Cache.get(`role`)) {
           Cache.del(`role`);
+          UserBots.clearSmode();
           Cache.del(`hasSent`);
           Cache.del(`useVote`);
-          Cache.del(`mode`);
           Cache.del(`target`);
           Cache.del(`roleSepaDon`);
           Cache.del(`begins`);
           Cache.del(`hasSentWarnDoc`);
           Cache.del(`hasSentWarnKill`);
           Cache.del(`doctor`);
-          Cache.del(`afkmodeHook`);
-          Cache.del(`afkmodeDet`);
           Cache.del(`dayNow`);
         }
       }
