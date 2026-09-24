@@ -21,6 +21,7 @@ export class UserBots {
       "kamikaze",
       "mafia",
       "detective",
+      "sergeant",
     ];
     const result = Object.entries(parsed)
       .filter(([, value]) => !excluded.includes(value))
@@ -135,7 +136,7 @@ export class UserBots {
     if (msg.text.includes("It's time to act") && Cache.get(`afkmodeDet`)) {
       const targetButton = buttons.find((b: any) => {
         return (
-          b.text?.includes("Kill") &&
+          b.text?.includes("Check") &&
           b.type?.className === "InlineButtonTypeCallback" &&
           b.type?.data
         );

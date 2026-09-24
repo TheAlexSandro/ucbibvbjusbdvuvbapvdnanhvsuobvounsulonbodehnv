@@ -90,7 +90,7 @@ export class BotHandle {
       this.ctx.reply(`⏳ Memproses...`).then((result) => {
         if (Cache.get("mode") === "afkmode") {
           var pesan = `🧨 <b>Suck Mode</b>`;
-          pesan += `\nSuck mode sedang aktif, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.`;
+          pesan += `\nSuck mode sedang aktif, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
 
           let keyb: any[] = [];
           keyb[0] = [btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`)];
@@ -159,13 +159,14 @@ export class BotHandle {
         pesan += `\nApakah Anda ingin melewati pemilihan? jika ya, maka semua userbot akan memilih target acak dari daftar userbot (target ditentukan apabila dia tidak memiliki peran aktif).`;
 
         keyb[0] = [
-          btn.text(`Gunakan`, `afkmode_vote_yes`),
+          btn.text(`Gunakan ✅`, `afkmode_vote_yes`),
           btn.text(`Lewati`, `afkmode_vote_no`),
         ];
         keyb[1] = [
           btn.text(`❌ Batal`, `cancel_`),
           btn.text(`Lanjut ➡️`, `afkmode_rlset_none`),
         ];
+        Cache.set(`useVote`, "yes");
       } else {
         if (Number(this.ctx.message?.text) < Number(Cache.get(`dayNow`) ?? 0))
           return this.ctx.reply(
@@ -223,7 +224,7 @@ export class BotHandle {
 
       if (type === "return") {
         var pesan = `🧨 <b>Suck Mode</b>`;
-        pesan += `\nSuck mode sedang aktif, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.`;
+        pesan += `\nSuck mode sedang aktif, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
 
         let keyb: any[] = [];
         keyb[0] = [btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`)];
@@ -270,31 +271,27 @@ export class BotHandle {
       }
 
       if (type === "role") {
-        const getRoleList = String(Cache.get(`role`));
         if (!Cache.get(`afkmode${mc[2]}`)) {
           Cache.set(`afkmode${mc[2]}`, true);
         } else {
           Cache.del(`afkmode${mc[2]}`);
         }
         let keyb: any[] = [];
-        keyb.push([btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`)]);
-        if (getRoleList.toLowerCase().includes("detective")) {
-          keyb.push([
-            btn.text(
-              `🕵️‍♂️ Detective ${Cache.get(`afkmodeDet`) ? "(otomatis)" : "(manual)"}`,
-              `afkmode_role_Det`,
-            ),
-          ]);
-        }
-        if (getRoleList.toLowerCase().includes("hooker")) {
-          keyb.push([
-            btn.text(
-              `💃 Hooker ${Cache.get(`afkmodeHook`) ? "(otomatis)" : "(manual)"}`,
-              `afkmode_role_Hook`,
-            ),
-          ]);
-        }
-        keyb.push([btn.text(`❌ Hentikan`, `afkmode_disable_none`)]);
+        keyb[0] = [btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`)];
+        keyb[1] = [btn.text(`🏙 Ganti Hari`, `afkmode_day_none`)];
+        keyb[2] = [
+          btn.text(
+            `🕵️‍♂️ Detective ${Cache.get(`afkmodeDet`) ? "(otomatis)" : "(manual)"}`,
+            `afkmode_role_Det`,
+          ),
+        ];
+        keyb[3] = [
+          btn.text(
+            `💃 Hooker ${Cache.get(`afkmodeHook`) ? "(otomatis)" : "(manual)"}`,
+            `afkmode_role_Hook`,
+          ),
+        ];
+        keyb[4] = [btn.text(`❌ Hentikan`, `afkmode_disable_none`)];
 
         this.ctx
           .editMessageReplyMarkup({
@@ -403,6 +400,9 @@ export class BotHandle {
       }
 
       if (type === "election") {
+        if (!Cache.get(`useVote`)) {
+          Cache.set(`useVote`, "yes");
+        }
         var pesan = `🗳 <b>Mode Pemilihan</b>`;
         pesan += `\nApakah Anda ingin melewati pemilihan? jika ya, maka semua userbot akan memilih target acak dari daftar userbot (target ditentukan apabila dia tidak memiliki peran aktif).`;
         let keyb = [];
@@ -441,14 +441,12 @@ export class BotHandle {
             show_alert: true,
           });
         Cache.set(`mode`, "afkmode");
-        this.ctx
-          .editMessageText(
-            `✅ <b>Mode Diatur!</b>\nUserbot akan bertahan hingga hari ke-${Cache.get(`afkmodeDur`)}, Anda akan diberitahu tentang peran semua userbot.`,
-            { parse_mode: "HTML" },
-          )
-          .catch(() => {
-            this.ctx.editMessageText(`Something went wrong...`);
-          });
+        this.ctx.deleteMessage().catch(() => {});
+        Utils.sendMessageToAdmin(
+          this.bot,
+          `✅ <b>Suck Mode Diaktifkan!</b>\nUserbot akan bertahan hingga hari ke-${Cache.get(`afkmodeDur`)}, Anda akan diberitahu tentang peran semua userbot.`,
+        );
+        return;
       }
 
       if (type === "disable") {

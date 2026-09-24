@@ -50,7 +50,7 @@ export class UserBotHandle {
                     : entity.firstName;
                   Utils.sendMessageToAdmin(
                     this.bot,
-                    `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> gagal bergabung, userbot mungkin dibatasi di grup atau terkena limit atau.`,
+                    `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> gagal bergabung, userbot mungkin dibatasi di grup atau terkena limit.`,
                   );
                 });
               });
@@ -144,7 +144,7 @@ export class UserBotHandle {
           Cache.del(`mode`);
           Utils.sendMessageToAdmin(
             this.bot,
-            `⚠️ <b>Perhatian!</b>\nSuck mode telah mencapai durasi yang ditentukan.\n${dayNumber} hari`,
+            `⚠️ <b>Perhatian!</b>\nSuck mode telah mencapai durasi yang ditentukan - ${dayNumber} hari.`,
           );
         }
       }
@@ -250,13 +250,15 @@ export class UserBotHandle {
         const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
 
         if (msg.text.includes("Who will you") && Cache.get(`afkmodeDet`)) {
-          const targetButton = buttons.find((b: any) => {
+          const callbackButtons = buttons.filter((b: any) => {
             return (
-              b.text?.includes(String(Cache.get(`target`))) &&
+              !b.text?.includes(String(Cache.get(`doctor`))) &&
               b.type?.className === "InlineButtonTypeCallback" &&
               b.type?.data
             );
           });
+          const targetButton =
+            callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
 
           if (targetButton) {
             this.client
