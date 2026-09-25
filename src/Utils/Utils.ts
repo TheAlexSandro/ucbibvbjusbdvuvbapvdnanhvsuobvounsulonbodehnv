@@ -1,5 +1,7 @@
 import type { Bot, Context } from "grammy";
 import { Cache } from "../Utils/Caches";
+import { InlineKeyboardButton } from "grammy/types";
+import { markup } from "./Buttons";
 
 type Callback<T> = (error: string | null, result: T) => void;
 
@@ -34,12 +36,25 @@ export class Utils {
     return s.replace(/>/g, "").replace(/</g, "");
   }
 
-  static sendMessageToAdmin(bot: Bot, message: string): void {
+  static sendMessageToAdmin(
+    bot: Bot,
+    message: string,
+    keyb?: InlineKeyboardButton[] | InlineKeyboardButton[][] | any[],
+  ): void {
     const admins = String(process.env["ADMIN"]).split(",");
     for (var i = 0; i < admins.length; i++) {
-      bot.api
-        .sendMessage(admins[i], message, { parse_mode: "HTML" })
-        .catch(() => {});
+      if (keyb) {
+        bot.api
+          .sendMessage(admins[i], message, {
+            parse_mode: "HTML",
+            reply_markup: markup.inlineKeyboard(keyb),
+          })
+          .catch(() => {});
+      } else {
+        bot.api
+          .sendMessage(admins[i], message, { parse_mode: "HTML" })
+          .catch(() => {});
+      }
     }
   }
 

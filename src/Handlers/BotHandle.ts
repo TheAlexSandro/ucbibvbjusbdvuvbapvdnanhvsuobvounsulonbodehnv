@@ -3,6 +3,7 @@ import { Utils } from "../Utils/Utils";
 import { TelegramClient } from "teleproto";
 import { markup, btn } from "../Utils/Buttons";
 import { Cache } from "../Utils/Caches";
+import { InlineKeyboardButton } from "grammy/types";
 
 export class BotHandle {
   bot: Bot;
@@ -111,9 +112,11 @@ export class BotHandle {
           if (i >= this.clients.length) {
             var pesan = `✅ <b>Perintah Terkirim!</b>`;
             pesan += `\nPerintah /next telah dikirim ke grup tujuan.`;
+            let keyb: any[] = [];
+            keyb[0] = [btn.text(`❌ Batalkan`, `regis_cancel`)];
 
             this.bot.api.deleteMessage(chat!.id, result.message_id);
-            Utils.sendMessageToAdmin(this.bot, pesan);
+            Utils.sendMessageToAdmin(this.bot, pesan, keyb);
             return;
           }
 
@@ -264,6 +267,17 @@ export class BotHandle {
     const cbData = String(callback?.data);
     let mc;
 
+    var pola = /^regis_cancel/i;
+    if (pola.exec(cbData)) {
+      Cache.del(`join`);
+      this.ctx.deleteMessage();
+      Utils.sendMessageToAdmin(
+        this.bot,
+        `❌ <b>Pendaftaran Dibatalkan!</b>\nUserbot tidak akan bergabung dalam permainan.`,
+      );
+      return;
+    }
+
     var pola = /^cancel_/i;
     if (pola.exec(cbData)) {
       Cache.del(`useVote`);
@@ -271,6 +285,8 @@ export class BotHandle {
       Cache.del(`smode_session_${this.ctx.chat?.id}`);
       Cache.del(`afkmodeDet`);
       Cache.del(`afkmodeHook`);
+      Cache.del(`afkmodeMani`);
+      Cache.del(`afkmodeSanta`);
       this.ctx.editMessageText(`❌ <b>Dibatalkan!</b>`, {
         parse_mode: "HTML",
       });
@@ -520,16 +536,12 @@ export class BotHandle {
 
       if (type === "disable") {
         Cache.del(`mode`);
-        this.ctx
-          .editMessageText(
-            `✅ <b>Mode Dimatikan!</b>\nUserbot akan afk hingga permainan berakhir.`,
-            { parse_mode: "HTML" },
-          )
-          .catch(() => {
-            this.ctx.editMessageText(`Something went wrong...`).catch(() => {
-              this.ctx.reply(`Something went wrong...`);
-            });
-          });
+        this.ctx.deleteMessage();
+        Utils.sendMessageToAdmin(
+          this.bot,
+          `✅ <b>Suck Mode Dimatikan!</b>\nUserbot akan afk hingga permainan berakhir.`,
+        );
+        return;
       }
     }
   }

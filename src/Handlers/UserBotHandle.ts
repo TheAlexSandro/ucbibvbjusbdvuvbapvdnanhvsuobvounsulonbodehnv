@@ -44,7 +44,11 @@ export class UserBotHandle {
           );
         });
 
-        if (msg.text?.includes("Attention!") && targetButton) {
+        if (
+          msg.text?.includes("Attention!") &&
+          targetButton &&
+          Cache.get(`join`)
+        ) {
           msg.getInputChat().then((entity) => {
             this.client
               .invoke(
