@@ -42,7 +42,8 @@ export class BotHandle {
       pesan += `\nKelola userbot Anda di sini.`;
       pesan += `\n\n🕹 <b>Perintah:</b>`;
       pesan += `\n• /next - gunakan perintah ini untuk memicu semua userbot mengirim <code>/next</code> ke grup.`;
-      pesan += `\n• /smode - (suck mode) gunakan perintah ini untuk membuat userbot bertahan hingga hari ke-51, <b>salah satu userbot harus memiliki peran dokter</b>.`;
+      pesan += `\n• /smode - (suck mode) gunakan perintah ini untuk membuat userbot bertahan hingga hari yang ditentukan, <b>salah satu userbot harus memiliki peran dokter</b>.`;
+      pesan += `\n• /ubot - kelola userbot mana yang akan digunakan.`;
       pesan += `\n• /reset - (berbahaya!) gunakan perintah ini untuk menghapus semua cache.`;
 
       this.ctx.reply(pesan, { parse_mode: "HTML" });
