@@ -9,13 +9,24 @@ export class UserBotHandle {
   event: NewMessageEvent;
   client: TelegramClient;
   bot: Bot;
-  constructor(evn: NewMessageEvent, client: TelegramClient, bot: Bot) {
+  clients: TelegramClient[];
+  constructor(
+    evn: NewMessageEvent,
+    client: TelegramClient,
+    bot: Bot,
+    clients: TelegramClient[],
+  ) {
     this.event = evn;
     this.client = client;
     this.bot = bot;
+    this.clients = clients;
   }
 
   public handle() {
+    const index = this.clients.indexOf(this.client);
+    const isDisabled = Cache.get(`userbot_${index}_disabled`);
+    if (isDisabled) return;
+
     const msg = this.event.message;
 
     if (msg.out) return;
@@ -248,29 +259,45 @@ export class UserBotHandle {
     ) {
       if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
         const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
+        const callbackButtons = buttons.filter((b: any) => {
+          return (
+            !b.text?.includes(String(Cache.get(`doctor`))) &&
+            b.type?.className === "InlineButtonTypeCallback" &&
+            b.type?.data
+          );
+        });
+        const targetButton =
+          callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
 
-        if (msg.text.includes("Who will you") && Cache.get(`afkmodeDet`)) {
-          const callbackButtons = buttons.filter((b: any) => {
-            return (
-              !b.text?.includes(String(Cache.get(`doctor`))) &&
-              b.type?.className === "InlineButtonTypeCallback" &&
-              b.type?.data
-            );
-          });
-          const targetButton =
-            callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
+        if (
+          msg.text.includes("Who will you") &&
+          Cache.get(`afkmodeDet`) &&
+          targetButton
+        ) {
+          this.client
+            .invoke(
+              new Api.messages.GetBotCallbackAnswer({
+                peer: msg.peerId,
+                msgId: msg.id,
+                data: (targetButton as any).type.data,
+              }),
+            )
+            .catch(() => {});
+        }
 
-          if (targetButton) {
-            this.client
-              .invoke(
-                new Api.messages.GetBotCallbackAnswer({
-                  peer: msg.peerId,
-                  msgId: msg.id,
-                  data: (targetButton as any).type.data,
-                }),
-              )
-              .catch(() => {});
-          }
+        if (
+          targetButton &&
+          (msg.text.includes("story") || msg.text.includes("stories"))
+        ) {
+          this.client
+            .invoke(
+              new Api.messages.GetBotCallbackAnswer({
+                peer: msg.peerId,
+                msgId: msg.id,
+                data: (targetButton as any).type.data,
+              }),
+            )
+            .catch(() => {});
         }
       }
     }

@@ -39,12 +39,12 @@ const initUserbot = async (stringSession: string) => {
   tgClients.push(tgClient);
 
   tgClient.addEventHandler((event: NewMessageEvent) => {
-    const handlers = new UserBotHandle(event, tgClient, bot);
+    const handlers = new UserBotHandle(event, tgClient, bot, tgClients);
     return handlers.handle();
   }, new NewMessage({}));
 
   tgClient.addEventHandler((event: EditedMessageEvent) => {
-    const handlers = new UserBotHandle(event, tgClient, bot);
+    const handlers = new UserBotHandle(event, tgClient, bot, tgClients);
     return handlers.editedMessageHandle();
   }, new EditedMessage({}));
 

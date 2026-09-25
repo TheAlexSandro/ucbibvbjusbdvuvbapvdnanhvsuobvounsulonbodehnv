@@ -22,6 +22,7 @@ export class UserBots {
       "mafia",
       "detective",
       "sergeant",
+      "journalist",
     ];
     const result = Object.entries(parsed)
       .filter(([, value]) => !excluded.includes(value))
@@ -75,11 +76,20 @@ export class UserBots {
       msg.text.includes("Whose glass") ||
       msg.text.includes("The Mafia is voting") ||
       msg.text.includes("Time to seek the guilty!") ||
-      msg.text.includes("Who are you")
+      msg.text.includes("Who are you") ||
+      msg.text.includes("Who's today's") ||
+      msg.text.includes("Who is getting")
     ) {
       if (msg.text.includes("Who are you gonna") && !Cache.get(`afkmodeHook`))
         return;
       if (msg.text.includes("Time to seek the guilty!") && useVote === "no")
+        return;
+      if (msg.text.includes("Who will you kill") && !Cache.get(`afkmodeMani`))
+        return;
+      if (
+        msg.text.includes("Who is getting the gifts") &&
+        !Cache.get(`afkmodeSanta`)
+      )
         return;
       const targetButton = buttons.find((b: any) => {
         return (
@@ -100,36 +110,33 @@ export class UserBots {
           )
           .catch(() => {});
       } else {
+        if (msg.text.includes("Who are you gonna") && !Cache.get(`afkmodeHook`))
+          return;
         if (
-          msg.text.includes("Whose glass") ||
-          msg.text.includes("Who are you gonna") ||
-          msg.text.includes("Time to seek the guilty!")
-        ) {
-          if (
-            msg.text.includes("Who are you gonna") &&
-            !Cache.get(`afkmodeHook`)
-          )
-            return;
-          const callbackButtons = buttons.filter((b: any) => {
-            return (
-              !b.text?.includes(String(Cache.get(`doctor`))) &&
-              b.type?.className === "InlineButtonTypeCallback" &&
-              b.type?.data
-            );
-          });
-          const targetButton =
-            callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
+          msg.text.includes("Who is getting the gifts") &&
+          !Cache.get(`afkmodeSanta`)
+        )
+          return;
 
-          client
-            .invoke(
-              new Api.messages.GetBotCallbackAnswer({
-                peer: msg.peerId,
-                msgId: msg.id,
-                data: (targetButton as any).type.data,
-              }),
-            )
-            .catch(() => {});
-        }
+        const callbackButtons = buttons.filter((b: any) => {
+          return (
+            !b.text?.includes(String(Cache.get(`doctor`))) &&
+            b.type?.className === "InlineButtonTypeCallback" &&
+            b.type?.data
+          );
+        });
+        const targetButton =
+          callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
+
+        client
+          .invoke(
+            new Api.messages.GetBotCallbackAnswer({
+              peer: msg.peerId,
+              msgId: msg.id,
+              data: (targetButton as any).type.data,
+            }),
+          )
+          .catch(() => {});
       }
     }
 
@@ -194,6 +201,8 @@ export class UserBots {
   static clearSmode() {
     Cache.del(`afkmodeHook`);
     Cache.del(`afkmodeDet`);
+    Cache.del(`afkmodeMani`);
+    Cache.del(`afkmodeSanta`);
     Cache.del(`useVote`);
     Cache.del(`mode`);
     Cache.del(`target`);

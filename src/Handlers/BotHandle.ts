@@ -1,8 +1,7 @@
 import type { Bot, Context } from "grammy";
 import { Utils } from "../Utils/Utils";
-import { Api, TelegramClient } from "teleproto";
-import { markup, btn } from "../Types/Buttons";
-import { InlineKeyboardButton } from "grammy/types";
+import { TelegramClient } from "teleproto";
+import { markup, btn } from "../Utils/Buttons";
 import { Cache } from "../Utils/Caches";
 
 export class BotHandle {
@@ -13,6 +12,22 @@ export class BotHandle {
     this.bot = bot;
     this.ctx = ctx;
     this.clients = clients;
+  }
+
+  private static readonly ROLES = [
+    { emoji: "🕵️‍♂️", label: "Detective", cacheKey: "afkmodeDet", action: "Det" },
+    { emoji: "💃", label: "Hooker", cacheKey: "afkmodeHook", action: "Hook" },
+    { emoji: "🔪", label: "Maniac", cacheKey: "afkmodeMani", action: "Mani" },
+    { emoji: "🎅", label: "Santa", cacheKey: "afkmodeSanta", action: "Santa" },
+  ];
+
+  private buildRoleButtons(callbackPrefix: string): any[] {
+    return BotHandle.ROLES.map((role) => [
+      btn.text(
+        `${role.emoji} ${role.label} ${Cache.get(role.cacheKey) ? "(otomatis)" : "(manual)"}`,
+        `${callbackPrefix}_${role.action}`,
+      ),
+    ]);
   }
 
   public message() {
@@ -34,6 +49,55 @@ export class BotHandle {
       return;
     }
 
+    var pola = /^\/ubot$/i;
+    if (pola.exec(this.ctx.message?.text!)) {
+      this.ctx.reply(`⏳ Memproses...`).then((result) => {
+        var pesan = `🤖 <b>Daftar Bot</b>`;
+        pesan += `\nKelola userbot mana yang ingin Anda gunakan atau matikan.`;
+
+        const keyb: any[] = [];
+        let index = 0;
+
+        const processNext = () => {
+          if (index >= this.clients.length) {
+            this.ctx.api.editMessageText(
+              result.chat.id,
+              result.message_id,
+              pesan,
+              { parse_mode: "HTML", reply_markup: { inline_keyboard: keyb } },
+            );
+            return;
+          }
+
+          const client = this.clients[index];
+          const currentIndex = index;
+
+          client
+            .getMe()
+            .then((me) => {
+              const isDisabled = Cache.get(`userbot_${currentIndex}_disabled`);
+
+              keyb.push([
+                btn.text(
+                  `${me.lastName ? `${me.firstName} ${me.lastName}` : me.firstName} ${!isDisabled ? "✅" : "❌"}`,
+                  `userbot_${currentIndex}`,
+                ),
+              ]);
+
+              index++;
+              processNext();
+            })
+            .catch(() => {
+              index++;
+              processNext();
+            });
+        };
+
+        processNext();
+      });
+      return;
+    }
+
     var pola = /^\/next$/i;
     if (pola.exec(this.ctx.message?.text!)) {
       this.ctx.reply(`⏳ Memproses...`).then((result) => {
@@ -41,6 +105,7 @@ export class BotHandle {
           Cache.set(`join`, true);
         }
         const targetId = String(process.env["MAFIA_GC"]);
+
         const processNext = (i: number): void => {
           if (i >= this.clients.length) {
             var pesan = `✅ <b>Perintah Terkirim!</b>`;
@@ -48,6 +113,12 @@ export class BotHandle {
 
             this.bot.api.deleteMessage(chat!.id, result.message_id);
             Utils.sendMessageToAdmin(this.bot, pesan);
+            return;
+          }
+
+          const isDisabled = Cache.get(`userbot_${i}_disabled`);
+          if (isDisabled) {
+            processNext(i + 1);
             return;
           }
 
@@ -93,21 +164,10 @@ export class BotHandle {
           pesan += `\nSuck mode sedang aktif, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
 
           let keyb: any[] = [];
-          keyb[0] = [btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`)];
-          keyb[1] = [btn.text(`🏙 Ganti Hari`, `afkmode_day_none`)];
-          keyb[2] = [
-            btn.text(
-              `🕵️‍♂️ Detective ${Cache.get(`afkmodeDet`) ? "(otomatis)" : "(manual)"}`,
-              `afkmode_role_Det`,
-            ),
-          ];
-          keyb[3] = [
-            btn.text(
-              `💃 Hooker ${Cache.get(`afkmodeHook`) ? "(otomatis)" : "(manual)"}`,
-              `afkmode_role_Hook`,
-            ),
-          ];
-          keyb[4] = [btn.text(`❌ Hentikan`, `afkmode_disable_none`)];
+          keyb.push([btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`)]);
+          keyb.push([btn.text(`🏙 Ganti Hari`, `afkmode_day_none`)]);
+          keyb.push(...this.buildRoleButtons("afkmode_role"));
+          keyb.push([btn.text(`❌ Hentikan`, `afkmode_disable_none`)]);
 
           this.bot.api.editMessageText(chat?.id!, result.message_id, pesan, {
             parse_mode: "HTML",
@@ -116,6 +176,10 @@ export class BotHandle {
           return;
         }
 
+        Cache.set(`afkmodeHook`, true);
+        Cache.set(`afkmodeDet`, true);
+        Cache.set(`afkmodeMani`, true);
+        Cache.set(`afkmodeSanta`, true);
         var pesan = `❇️ <b>Masukkan Angka</b>`;
         pesan += `\nBerapa lama Anda ingin ngehama?`;
         let keyb = [];
@@ -197,6 +261,7 @@ export class BotHandle {
     const chat = this.ctx.chat;
     const callback = this.ctx.callbackQuery;
     const cbData = String(callback?.data);
+    let mc;
 
     var pola = /^cancel_/i;
     if (pola.exec(cbData)) {
@@ -217,8 +282,55 @@ export class BotHandle {
       return;
     }
 
+    var pola = /^userbot_(\d+)$/i;
+    if ((mc = pola.exec(cbData))) {
+      const index = Number(mc[1]);
+
+      const isDisabled = Cache.get(`userbot_${index}_disabled`);
+      Cache.set(`userbot_${index}_disabled`, !isDisabled);
+
+      const message = this.ctx.callbackQuery?.message!;
+      const currentKeyboard = message?.reply_markup?.inline_keyboard;
+
+      if (!currentKeyboard) {
+        this.ctx.answerCallbackQuery({
+          text: "Gagal update, keyboard tidak ditemukan.",
+        });
+        return;
+      }
+
+      const newKeyboard = currentKeyboard.map((row) => {
+        return row.map((button) => {
+          if (
+            "callback_data" in button &&
+            button.callback_data === `userbot_${index}`
+          ) {
+            const nameOnly = button.text.replace(/\s*[✅❌]\s*$/, "").trim();
+            const newDisabled = !isDisabled;
+            return {
+              ...button,
+              text: `${nameOnly} ${!newDisabled ? "✅" : "❌"}`,
+            };
+          }
+          return button;
+        });
+      });
+
+      this.ctx
+        .editMessageReplyMarkup({
+          reply_markup: { inline_keyboard: newKeyboard },
+        })
+        .catch(() => {
+          this.ctx.editMessageText(`Something went wrong...`).catch(() => {
+            this.ctx.reply(`Something went wrong...`);
+          });
+        });
+      this.ctx.answerCallbackQuery().catch(() => {});
+      return;
+    }
+
     var pola = /afkmode_(.*)_(.*)/i;
-    let mc;
+
     if ((mc = pola.exec(cbData))) {
       const type = mc[1];
 
@@ -227,21 +339,10 @@ export class BotHandle {
         pesan += `\nSuck mode sedang aktif, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
 
         let keyb: any[] = [];
-        keyb[0] = [btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`)];
-        keyb[1] = [btn.text(`🏙 Ganti Hari`, `afkmode_day_none`)];
-        keyb[2] = [
-          btn.text(
-            `🕵️‍♂️ Detective ${Cache.get(`afkmodeDet`) ? "(otomatis)" : "(manual)"}`,
-            `afkmode_role_Det`,
-          ),
-        ];
-        keyb[3] = [
-          btn.text(
-            `💃 Hooker ${Cache.get(`afkmodeHook`) ? "(otomatis)" : "(manual)"}`,
-            `afkmode_role_Hook`,
-          ),
-        ];
-        keyb[4] = [btn.text(`❌ Hentikan`, `afkmode_disable_none`)];
+        keyb.push([btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`)]);
+        keyb.push([btn.text(`🏙 Ganti Hari`, `afkmode_day_none`)]);
+        keyb.push(...this.buildRoleButtons("afkmode_role"));
+        keyb.push([btn.text(`❌ Hentikan`, `afkmode_disable_none`)]);
 
         this.ctx
           .editMessageText(pesan, {
@@ -277,21 +378,10 @@ export class BotHandle {
           Cache.del(`afkmode${mc[2]}`);
         }
         let keyb: any[] = [];
-        keyb[0] = [btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`)];
-        keyb[1] = [btn.text(`🏙 Ganti Hari`, `afkmode_day_none`)];
-        keyb[2] = [
-          btn.text(
-            `🕵️‍♂️ Detective ${Cache.get(`afkmodeDet`) ? "(otomatis)" : "(manual)"}`,
-            `afkmode_role_Det`,
-          ),
-        ];
-        keyb[3] = [
-          btn.text(
-            `💃 Hooker ${Cache.get(`afkmodeHook`) ? "(otomatis)" : "(manual)"}`,
-            `afkmode_role_Hook`,
-          ),
-        ];
-        keyb[4] = [btn.text(`❌ Hentikan`, `afkmode_disable_none`)];
+        keyb.push([btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`)]);
+        keyb.push([btn.text(`🏙 Ganti Hari`, `afkmode_day_none`)]);
+        keyb.push(...this.buildRoleButtons("afkmode_role"));
+        keyb.push([btn.text(`❌ Hentikan`, `afkmode_disable_none`)]);
 
         this.ctx
           .editMessageReplyMarkup({
@@ -307,23 +397,12 @@ export class BotHandle {
         pesan += `\nApakah Anda ingin peran berikut dikendalikan bot atau manual? Anda juga dapat mengubahnya nanti.`;
 
         let keyb: any[] = [];
-        keyb[0] = [
-          btn.text(
-            `🕵️‍♂️ Detective ${Cache.get(`afkmodeDet`) ? "(otomatis)" : "(manual)"}`,
-            `afkmode_rolst_Det`,
-          ),
-        ];
-        keyb[1] = [
-          btn.text(
-            `💃 Hooker ${Cache.get(`afkmodeHook`) ? "(otomatis)" : "(manual)"}`,
-            `afkmode_rolst_Hook`,
-          ),
-        ];
-        keyb[2] = [btn.text(`❌ Batal`, `cancel_`)];
-        keyb[3] = [
+        keyb.push(...this.buildRoleButtons("afkmode_rolst"));
+        keyb.push([btn.text(`❌ Batal`, `cancel_`)]);
+        keyb.push([
           btn.text(`⬅️ Kembali`, `afkmode_election_none`),
           btn.text(`Aktifkan ➡️`, `afkmode_active_none`),
-        ];
+        ]);
 
         this.ctx
           .editMessageText(pesan, {
@@ -342,23 +421,12 @@ export class BotHandle {
           Cache.del(`afkmode${mc[2]}`);
         }
         let keyb: any[] = [];
-        keyb[0] = [
-          btn.text(
-            `🕵️‍♂️ Detective ${Cache.get(`afkmodeDet`) ? "(otomatis)" : "(manual)"}`,
-            `afkmode_rolst_Det`,
-          ),
-        ];
-        keyb[1] = [
-          btn.text(
-            `💃 Hooker ${Cache.get(`afkmodeHook`) ? "(otomatis)" : "(manual)"}`,
-            `afkmode_rolst_Hook`,
-          ),
-        ];
-        keyb[2] = [btn.text(`❌ Batal`, `cancel_`)];
-        keyb[3] = [
+        keyb.push(...this.buildRoleButtons("afkmode_rolst"));
+        keyb.push([btn.text(`❌ Batal`, `cancel_`)]);
+        keyb.push([
           btn.text(`⬅️ Kembali`, `afkmode_election_none`),
           btn.text(`Aktifkan ➡️`, `afkmode_active_none`),
-        ];
+        ]);
 
         this.ctx
           .editMessageReplyMarkup({
@@ -457,7 +525,9 @@ export class BotHandle {
             { parse_mode: "HTML" },
           )
           .catch(() => {
-            this.ctx.editMessageText(`Something went wrong...`);
+            this.ctx.editMessageText(`Something went wrong...`).catch(() => {
+              this.ctx.reply(`Something went wrong...`);
+            });
           });
       }
     }
