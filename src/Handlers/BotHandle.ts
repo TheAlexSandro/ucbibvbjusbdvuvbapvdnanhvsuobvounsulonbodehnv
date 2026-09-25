@@ -269,8 +269,12 @@ export class BotHandle {
 
     var pola = /^regis_cancel/i;
     if (pola.exec(cbData)) {
-      Cache.del(`join`);
       this.ctx.deleteMessage();
+      if (!Cache.get(`join`)) {
+        this.ctx.answerCallbackQuery({ text: `Nothing`, show_alert: true });
+        return;
+      }
+      Cache.del(`join`);
       Utils.sendMessageToAdmin(
         this.bot,
         `❌ <b>Pendaftaran Dibatalkan!</b>\nUserbot tidak akan bergabung dalam permainan.`,
