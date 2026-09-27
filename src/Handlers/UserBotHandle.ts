@@ -248,8 +248,6 @@ export class UserBotHandle {
           msg.text.includes(String(Cache.get(`target`))) &&
           Cache.get(`useVote`) === "yes"
         ) {
-          if (Cache.get(`allroleAfk`)) return;
-
           const targetButton = buttons.find((b: any) => {
             return (
               b.text?.includes("👎") &&
