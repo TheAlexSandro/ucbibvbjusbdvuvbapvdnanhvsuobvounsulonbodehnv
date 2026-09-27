@@ -159,8 +159,6 @@ export class BotHandle {
     if (pola.exec(this.ctx.message?.text!)) {
       if (!Cache.get(`group_name`))
         return this.ctx.reply(`⚠️ Belum ada grup yang ditentukan.`);
-      if (!Cache.get(`begins`))
-        return this.ctx.reply(`⚠️ Permainan belum dimulai.`);
       this.ctx.reply(`⏳ Memproses...`).then((result) => {
         if (Cache.get("mode") === "afkmode") {
           var pesan = `🧨 <b>Suck Mode</b>`;
