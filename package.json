@@ -4,7 +4,7 @@
   "description": "Mafia userbot",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "nodemon src/index.ts",
+    "dev": "nodemon --exec tsx src/index.ts",
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external",
     "start": "node dist/index.js",
     "postinstall": "prisma skills sync || exit 0",
@@ -31,6 +31,7 @@
     "esbuild": "^0.28.2",
     "prisma": "^8.0.0-rc.17",
     "ts-node": "^10.9.2",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3"
   }
 }

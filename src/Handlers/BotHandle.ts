@@ -622,25 +622,24 @@ export class BotHandle {
                             `userbot_${String(entity.id)}_disabled`,
                           );
                           if (isDisabled) return;
-                          return this.clients[i]
-                            .sendMessage(chat_result, {
-                              message: "/next",
-                            })
-                            .catch((err) => {
-                              const fullName = entity.lastName
-                                ? `${entity.firstName} ${entity.lastName}`
-                                : entity.firstName;
-                              const errMsg = err.message.includes(
-                                `You're banned from sending messages in supergroups/channels.`,
-                              )
-                                ? `userbot mungkin dibatasi Telegram untuk mengirim pesan. Userbot akan mencoba bergabung saat ada pendaftaran dimulai.`
-                                : `userbot mungkin diblokir atau belum bergabung dalam grup.`;
+                          return this.clients[i].sendMessage(chat_result, {
+                            message: "/next",
+                          });
+                        })
+                        .catch((err) => {
+                          const fullName = entity.lastName
+                            ? `${entity.firstName} ${entity.lastName}`
+                            : entity.firstName;
+                          const errMsg = err.message.includes(
+                            `You're banned from sending messages in supergroups/channels.`,
+                          )
+                            ? `userbot mungkin dibatasi Telegram untuk mengirim pesan. Userbot akan mencoba bergabung saat ada pendaftaran dimulai.`
+                            : `userbot mungkin diblokir atau belum bergabung dalam grup.`;
 
-                              Utils.sendMessageToAdmin(
-                                this.bot,
-                                `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> gagal mengirim perintah /next ke grup, ${errMsg}`,
-                              );
-                            });
+                          Utils.sendMessageToAdmin(
+                            this.bot,
+                            `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> gagal mengirim perintah /next ke grup, ${errMsg}`,
+                          );
                         });
                     })
                     .finally(() => {

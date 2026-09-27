@@ -1,6 +1,4 @@
-import { config } from "dotenv";
-config({ path: ".env" });
-
+import "dotenv/config";
 import express from "express";
 import { Bot, type Context } from "grammy";
 import { TelegramClient } from "teleproto";
