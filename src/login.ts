@@ -2,7 +2,7 @@ import { config } from "dotenv";
 config({ path: ".env" });
 
 import { TelegramClient } from "teleproto";
-import { StringSession } from "teleproto/sessions";
+import { StringSession } from "teleproto/sessions/index.js";
 import readlineSync from "readline-sync";
 
 const apiId = Number(process.env["API_ID"]);

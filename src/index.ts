@@ -9,8 +9,8 @@ import {
   NewMessageEvent,
   EditedMessage,
   EditedMessageEvent,
-} from "teleproto/events";
-import { StringSession } from "teleproto/sessions";
+} from "teleproto/events/index.js";
+import { StringSession } from "teleproto/sessions/index.js";
 import { initDb } from "./prisma/Database";
 import { Database } from "./prisma/Database";
 import { Cache } from "./Utils/Caches";

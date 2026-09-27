@@ -1,10 +1,10 @@
-import { NewMessageEvent } from "teleproto/events";
+import { NewMessageEvent } from "teleproto/events/index.js";
 import { Api, TelegramClient } from "teleproto";
 import { Cache } from "../Utils/Caches";
 import { Utils } from "../Utils/Utils";
 import type { Bot } from "grammy";
 import { UserBots } from "../Utils/UserBots";
-import { Entity } from "teleproto/define";
+import type { Entity } from "teleproto/define";
 
 export class UserBotHandle {
   event: NewMessageEvent;
