@@ -5,9 +5,10 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon src/index.ts",
-    "build": "tsc",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external",
     "start": "node dist/index.js",
-    "postinstall": "prisma skills sync || exit 0"
+    "postinstall": "prisma skills sync || exit 0",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [
     "bot"
@@ -27,6 +28,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.2",
     "@types/readline-sync": "^1.4.8",
+    "esbuild": "^0.28.2",
     "prisma": "^8.0.0-rc.17",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
