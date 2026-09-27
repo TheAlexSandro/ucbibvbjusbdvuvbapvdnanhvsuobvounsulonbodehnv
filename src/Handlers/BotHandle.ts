@@ -213,9 +213,13 @@ export class BotHandle {
 
     var pola = /^\/reset$/i;
     if (pola.exec(this.ctx.message?.text!)) {
-      Cache.flushAll();
-      this.ctx.reply(`✅ <b>Cache Direset!</b>\nSemua cache telah dihapus.`, {
+      var pesan = `⚠️ <b>Perhatian!</b>`;
+      pesan += `\nApakah Anda ingin menghapus semua cache? suck mode yang aktif, next yang sudah dikirim akan terdampak.`;
+      let keyb = [];
+      keyb[0] = [btn.text(`❌ Batal`, `close_`), btn.text(`✅ Ya`, `reset_`)];
+      this.ctx.reply(pesan, {
         parse_mode: "HTML",
+        reply_markup: markup.inlineKeyboard(keyb),
       });
       return;
     }
@@ -332,7 +336,7 @@ export class BotHandle {
     const cbData = String(callback?.data);
     let mc;
 
-    var pola = /^regis_cancel/i;
+    var pola = /^regis_cancel$/i;
     if (pola.exec(cbData)) {
       this.ctx.deleteMessage();
       if (!Cache.get(`join`)) {
@@ -347,7 +351,7 @@ export class BotHandle {
       return;
     }
 
-    var pola = /^cancel_/i;
+    var pola = /^cancel_$/i;
     if (pola.exec(cbData)) {
       Cache.del(`useVote`);
       Cache.del(`mode`);
@@ -367,9 +371,18 @@ export class BotHandle {
       return this.ctx.answerCallbackQuery();
     }
 
-    var pola = /^close_/i;
+    var pola = /^close_$/i;
     if (pola.exec(cbData)) {
       this.ctx.deleteMessage().catch(() => {});
+      return;
+    }
+
+    var pola = /^reset_$/i;
+    if (pola.exec(cbData)) {
+      Cache.flushAll();
+      this.ctx.editMessageText(
+        `✅ <b>Berhasil!</b>\nSemua cache telah dihapus.`,
+      );
       return;
     }
 
