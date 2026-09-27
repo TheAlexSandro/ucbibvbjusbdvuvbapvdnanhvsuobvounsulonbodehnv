@@ -211,7 +211,7 @@ export class UserBots {
         Cache.set(`hasSentKill_${userId}`, true);
         Utils.sendMessageToAdmin(
           bot,
-          `☠️ <b>Dead!</b>\nUserbot <a href='tg://user?id=${userId}'>${fullName}</a> ${lynched ? 'telah digantung' : 'dibunuh dalam permainan'}.`,
+          `☠️ <b>Dead!</b>\nUserbot <a href='tg://user?id=${userId}'>${fullName}</a> ${lynched ? "telah digantung" : "dibunuh dalam permainan"}.`,
         );
       }
     });
@@ -227,5 +227,7 @@ export class UserBots {
     Cache.del(`mode`);
     Cache.del(`target`);
     Cache.del(`afkmodeDur`);
+    Cache.del(`continu`);
+    Cache.del(`allroleAfk`);
   }
 }
