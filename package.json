@@ -12,6 +12,7 @@
   "keywords": [
     "bot"
   ],
+  "type": "module",
   "dependencies": {
     "@prisma/client": "^7.10.0",
     "@prisma/orm-postgres": "^8.0.0-rc.12",
