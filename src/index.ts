@@ -11,6 +11,9 @@ import {
   EditedMessageEvent,
 } from "teleproto/events";
 import { StringSession } from "teleproto/sessions";
+import { initDb } from "./prisma/Database";
+import { Database } from "./prisma/Database";
+import { Cache } from "./Utils/Caches";
 
 import { UserBotHandle } from "./Handlers/UserBotHandle";
 import { BotHandle } from "./Handlers/BotHandle";
@@ -39,13 +42,39 @@ const initUserbot = async (stringSession: string) => {
   tgClients.push(tgClient);
 
   tgClient.addEventHandler((event: NewMessageEvent) => {
-    const handlers = new UserBotHandle(event, tgClient, bot, tgClients);
-    return handlers.handle();
+    if (event.message.isPrivate) {
+      event.client?.getMe().then((entity) => {
+        const handlers = new UserBotHandle(
+          event,
+          tgClient,
+          bot,
+          tgClients,
+          entity,
+        );
+        return handlers.handle();
+      });
+    } else {
+      const handlers = new UserBotHandle(event, tgClient, bot, tgClients, null);
+      return handlers.handle();
+    }
   }, new NewMessage({}));
 
   tgClient.addEventHandler((event: EditedMessageEvent) => {
-    const handlers = new UserBotHandle(event, tgClient, bot, tgClients);
-    return handlers.editedMessageHandle();
+    if (event.message.isPrivate) {
+      event.client?.getMe().then((entity) => {
+        const handlers = new UserBotHandle(
+          event,
+          tgClient,
+          bot,
+          tgClients,
+          entity,
+        );
+        return handlers.editedMessageHandle();
+      });
+    } else {
+      const handlers = new UserBotHandle(event, tgClient, bot, tgClients, null);
+      return handlers.editedMessageHandle();
+    }
   }, new EditedMessage({}));
 
   const info = await tgClient.getMe();
@@ -67,7 +96,31 @@ bot.on("callback_query", (ctx: NonNullable<Context>) => {
 });
 
 (async () => {
+  await initDb();
   await Promise.all(ssList.map((ss) => initUserbot(ss)));
+  Database.orm.public.DisabledUserBot.select("UserId")
+    .all()
+    .then(async (db_result) => {
+      const disabledSet = new Set(
+        db_result.map((row) => row.UserId.toString()),
+      );
+
+      await Promise.all(
+        tgClients.map(async (client, index) => {
+          try {
+            const me = await client.getMe();
+            const isDisabled = disabledSet.has(me.id.toString());
+            if (isDisabled) {
+              Cache.set(`userbot_${String(me.id)}_disabled`, true);
+            }
+          } catch (err) {
+            console.log(`Client ${index} gagal getMe saat sync cache:`, err);
+          }
+        }),
+      );
+
+      console.log("Cache disabled userbot berhasil di-sync dari DB.");
+    });
   bot.start({ drop_pending_updates: true });
   app.get("/ping", (req, res) => {
     return res.json({ ok: true });

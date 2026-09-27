@@ -80,6 +80,8 @@ export class UserBots {
       msg.text.includes("Who's today's") ||
       msg.text.includes("Who is getting")
     ) {
+      if (Cache.get(`allroleAfk`)) return;
+
       if (msg.text.includes("Who are you gonna") && !Cache.get(`afkmodeHook`))
         return;
       if (msg.text.includes("Time to seek the guilty!") && useVote === "no")
@@ -189,11 +191,28 @@ export class UserBots {
   }
 
   private static deadUpdateQueue: Promise<void> = Promise.resolve();
-  static incrementDead(delta: number) {
+  static incrementDead(
+    delta: number,
+    fullName: string,
+    userId: string,
+    bot: Bot,
+  ) {
     this.deadUpdateQueue = this.deadUpdateQueue.then(() => {
       const getDead = Cache.get(`dead`);
+      const target = Cache.get(`target`);
       const current = getDead ? Number(getDead) : 0;
       Cache.set(`dead`, current + delta);
+
+      if (
+        !fullName.includes(String(target)) &&
+        !Cache.get(`hasSentKill_${userId}`)
+      ) {
+        Cache.set(`hasSentKill_${userId}`, true);
+        Utils.sendMessageToAdmin(
+          bot,
+          `☠️ <b>Dibunuh!</b>\nUserbot <a href='tg://user?id=${userId}'>${fullName}</a> dibunuh dalam permainan.`,
+        );
+      }
     });
     return this.deadUpdateQueue;
   }

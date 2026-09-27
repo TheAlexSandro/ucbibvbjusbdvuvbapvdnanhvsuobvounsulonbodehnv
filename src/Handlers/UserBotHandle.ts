@@ -4,36 +4,46 @@ import { Cache } from "../Utils/Caches";
 import { Utils } from "../Utils/Utils";
 import type { Bot } from "grammy";
 import { UserBots } from "../Utils/UserBots";
+import { Entity } from "teleproto/define";
 
 export class UserBotHandle {
   event: NewMessageEvent;
   client: TelegramClient;
   bot: Bot;
   clients: TelegramClient[];
+  entity: Entity | null;
   constructor(
     evn: NewMessageEvent,
     client: TelegramClient,
     bot: Bot,
     clients: TelegramClient[],
+    entity: Entity | null,
   ) {
     this.event = evn;
     this.client = client;
     this.bot = bot;
     this.clients = clients;
+    this.entity = entity;
   }
 
   public handle() {
-    const index = this.clients.indexOf(this.client);
-    const isDisabled = Cache.get(`userbot_${index}_disabled`);
-    if (isDisabled) return;
-
     const msg = this.event.message;
 
     if (msg.out) return;
     if (
       msg.isPrivate &&
-      Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
+      Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"]) &&
+      this.entity instanceof Api.User
     ) {
+      const isDisabled = Cache.get(
+        `userbot_${String(this.entity.id)}_disabled`,
+      );
+      if (isDisabled) return;
+
+      const fullName = this.entity.lastName
+        ? `${this.entity.firstName} ${this.entity.lastName}`
+        : this.entity.firstName;
+
       if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
         const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
         const targetButton = buttons.find((b: any) => {
@@ -59,15 +69,10 @@ export class UserBotHandle {
                 }),
               )
               .catch(() => {
-                this.client.getMe().then((entity) => {
-                  const fullName = entity.lastName
-                    ? `${entity.firstName} ${entity.lastName}`
-                    : entity.firstName;
-                  Utils.sendMessageToAdmin(
-                    this.bot,
-                    `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> gagal bergabung, userbot mungkin dibatasi di grup atau terkena limit.`,
-                  );
-                });
+                Utils.sendMessageToAdmin(
+                  this.bot,
+                  `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(this.entity?.id)}'>${fullName}</a> gagal bergabung, userbot mungkin dibatasi di grup atau terkena limit.`,
+                );
               });
           });
         }
@@ -79,16 +84,10 @@ export class UserBotHandle {
       }
 
       if (msg.text.includes("Couldn't join the game")) {
-        this.client.getMe().then((entity) => {
-          const fullName = entity.lastName
-            ? `${entity.firstName} ${entity.lastName}`
-            : entity.firstName;
-
-          Utils.sendMessageToAdmin(
-            this.bot,
-            `🤚 <a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> tidak dapat bergabung tepat waktu.`,
-          );
-        });
+        Utils.sendMessageToAdmin(
+          this.bot,
+          `🤚 <a href='tg://user?id=${Number(this.entity.id)}'>${fullName}</a> tidak dapat bergabung tepat waktu.`,
+        );
       }
 
       if (
@@ -103,44 +102,49 @@ export class UserBotHandle {
         );
         const role = match?.[1]?.toLowerCase();
 
-        this.client.getMe().then((entity) => {
-          const fullName = entity.lastName
-            ? `${entity.firstName} ${entity.lastName}`
-            : entity.firstName;
-          if (role === "doctor") {
-            Cache.set(`doctor`, fullName);
-          }
-          if (
-            msg.text.includes("is a new") &&
-            !msg.text.includes(String(fullName))
-          )
-            return;
+        if (role === "doctor") {
+          Cache.set(`doctor`, fullName);
+        }
+        if (
+          msg.text.includes("is a new") &&
+          !msg.text.includes(String(fullName))
+        )
+          return;
 
-          Utils.sendMessageToAdmin(
-            this.bot,
-            `<a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> - ${match?.[0]}`,
-          );
-
-          UserBots.updateRoleCache(String(fullName), role);
-        });
+        Utils.sendMessageToAdmin(
+          this.bot,
+          `<a href='tg://user?id=${Number(this.entity.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the name") ? "is a new" : "-"} ${match?.[0]}`,
+        );
+        UserBots.updateRoleCache(String(fullName), role);
       }
 
       if (
         msg.text.includes("You have been killed") ||
-        msg.text.includes("Congrats on winning")
+        msg.text.includes("Congrats on winning") ||
+        msg.text.includes("You stayed idle")
       ) {
-        UserBots.incrementDead(1);
+        UserBots.incrementDead(
+          1,
+          String(fullName),
+          String(this.entity.id),
+          this.bot,
+        );
       }
 
       if (msg.text.includes("doctor patched you up")) {
-        UserBots.incrementDead(-1);
+        UserBots.incrementDead(
+          -1,
+          String(fullName),
+          String(this.entity.id),
+          this.bot,
+        );
       }
     }
 
-    const getGc = String(process.env["MAFIA_GC"]).split(",");
-    const isListed = getGc.find((id: string) => id === String(msg.chatId));
-    if (!isListed) return;
-    if (Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])) {
+    if (
+      String(msg.chatId) === String(Cache.get(`group_target`)) &&
+      Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
+    ) {
       const match = msg.text.match(/Total:\s*(\d+)/);
       const total = match ? Number(match[1]) : 0;
       if (!Cache.get(`total`)) {
@@ -155,11 +159,12 @@ export class UserBotHandle {
       if (dayNumber === Number(Cache.get(`afkmodeDur`))) {
         if (!Cache.get(`hasSent`)) {
           Cache.set(`hasSent`, true);
-          Cache.del(`useVote`);
-          Cache.del(`mode`);
+          if (!Cache.get(`continu`)) {
+            UserBots.clearSmode();
+          }
           Utils.sendMessageToAdmin(
             this.bot,
-            `⚠️ <b>Perhatian!</b>\nSuck mode telah mencapai durasi yang ditentukan - ${dayNumber} hari.`,
+            `⚠️ <b>Perhatian!</b>\nSuck mode telah mencapai durasi yang ditentukan - ${dayNumber} hari.${Cache.get(`continu`) ? "\n🔁 Continuous sedang aktif, userbot tidak akan berhenti." : ""}`,
           );
         }
       }
@@ -168,7 +173,7 @@ export class UserBotHandle {
         if (!Cache.get(`begins`)) {
           Cache.set(`begins`, true);
         }
-        if (Cache.get(`join`)) {
+        if (Cache.get(`join`) && !Cache.get(`continu`)) {
           Cache.del(`join`);
         }
       }
@@ -177,14 +182,19 @@ export class UserBotHandle {
         Cache.set(`roleSepaDon`, true);
         Cache.del(`hasSent`);
         Cache.del(`hasSentWarnKill`);
+        const getUbot = String(process.env["USERBOT"]).split(",");
+        getUbot.map((id: string) => {
+          Cache.del(`hasSentKill_${id}`);
+        });
       }
 
       if (msg.text.includes("#ADVERTISING") || msg.text.includes("Game over")) {
         if (Cache.get(`role`)) {
           Cache.del(`role`);
-          UserBots.clearSmode();
+          if (!Cache.get(`continu`)) {
+            UserBots.clearSmode();
+          }
           Cache.del(`hasSent`);
-          Cache.del(`useVote`);
           Cache.del(`target`);
           Cache.del(`roleSepaDon`);
           Cache.del(`begins`);
@@ -192,6 +202,10 @@ export class UserBotHandle {
           Cache.del(`hasSentWarnKill`);
           Cache.del(`doctor`);
           Cache.del(`dayNow`);
+          const getUbot = String(process.env["USERBOT"]).split(",");
+          getUbot.map((id: string) => {
+            Cache.del(`hasSentKill_${id}`);
+          });
         }
       }
 
@@ -199,30 +213,34 @@ export class UserBotHandle {
         const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
 
         if (msg.text.includes("Registration") && Cache.get(`join`)) {
-          const targetButton = buttons.find((b: any) => {
-            return (
-              b.text?.includes("Join") &&
-              b.type?.className === "InlineButtonTypeUrl" &&
-              b.type?.url
-            );
-          });
-
-          if (targetButton) {
-            const url = (targetButton as any).type.url;
-            const parsed = new URL(url);
-            const username = parsed.pathname.slice(1);
-            const startParam = String(parsed.searchParams.get("start"));
-            this.client.getEntity(username).then((entity) => {
-              return this.client.invoke(
-                new Api.messages.StartBot({
-                  bot: entity,
-                  peer: entity,
-                  randomId: BigInt(Math.floor(Math.random() * 1e18)) as any,
-                  startParam,
-                }),
+          this.client.getMe().then((me) => {
+            const isDisabled = Cache.get(`userbot_${String(me.id)}_disabled`);
+            if (isDisabled) return;
+            const targetButton = buttons.find((b: any) => {
+              return (
+                b.text?.includes("Join") &&
+                b.type?.className === "InlineButtonTypeUrl" &&
+                b.type?.url
               );
             });
-          }
+
+            if (targetButton) {
+              const url = (targetButton as any).type.url;
+              const parsed = new URL(url);
+              const username = parsed.pathname.slice(1);
+              const startParam = String(parsed.searchParams.get("start"));
+              this.client.getEntity(username).then((entity) => {
+                return this.client.invoke(
+                  new Api.messages.StartBot({
+                    bot: entity,
+                    peer: entity,
+                    randomId: BigInt(Math.floor(Math.random() * 1e18)) as any,
+                    startParam,
+                  }),
+                );
+              });
+            }
+          });
         }
 
         if (
@@ -230,6 +248,8 @@ export class UserBotHandle {
           msg.text.includes(String(Cache.get(`target`))) &&
           Cache.get(`useVote`) === "yes"
         ) {
+          if (Cache.get(`allroleAfk`)) return;
+
           const targetButton = buttons.find((b: any) => {
             return (
               b.text?.includes("👎") &&
@@ -251,6 +271,7 @@ export class UserBotHandle {
         }
       }
     }
+    return;
   }
 
   public editedMessageHandle() {
@@ -274,25 +295,13 @@ export class UserBotHandle {
           callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
 
         if (
-          msg.text.includes("Who will you") &&
-          Cache.get(`afkmodeDet`) &&
+          (msg.text.includes("Who will you") ||
+            msg.text.includes("The first subject")) &&
           targetButton
         ) {
-          this.client
-            .invoke(
-              new Api.messages.GetBotCallbackAnswer({
-                peer: msg.peerId,
-                msgId: msg.id,
-                data: (targetButton as any).type.data,
-              }),
-            )
-            .catch(() => {});
-        }
+          if (msg.text.includes("Who will you") && !Cache.get(`afkmodeDet`))
+            return;
 
-        if (
-          targetButton &&
-          (msg.text.includes("story") || msg.text.includes("stories"))
-        ) {
           this.client
             .invoke(
               new Api.messages.GetBotCallbackAnswer({

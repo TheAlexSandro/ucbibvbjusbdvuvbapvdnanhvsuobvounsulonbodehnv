@@ -1,0 +1,9 @@
+// use prisma-8
+model Group {
+  GroupId String @id
+  GroupName String
+}
+
+model DisabledUserBot {
+  UserId String @id
+}

@@ -1,18 +1,21 @@
 {
   "name": "mafiauserbots",
-  "version": "1.0.0",
-  "description": "sucks",
+  "version": "2.0.0",
+  "description": "Mafia userbot",
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon src/index.ts",
     "build": "npx tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "postinstall": "prisma skills sync || exit 0"
   },
   "keywords": [
     "bot"
   ],
   "type": "commonjs",
   "dependencies": {
+    "@prisma/client": "^7.10.0",
+    "@prisma/orm-postgres": "^8.0.0-rc.12",
     "dotenv": "^18.0.2",
     "express": "^5.2.1",
     "grammy": "^1.46.0",
@@ -24,6 +27,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.2",
     "@types/readline-sync": "^1.4.8",
+    "prisma": "^8.0.0-rc.17",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }
