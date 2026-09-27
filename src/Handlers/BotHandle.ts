@@ -572,61 +572,70 @@ export class BotHandle {
         const target = mc[1];
         Cache.set(`group_target`, target);
         Cache.set(`join`, true);
-        Database.orm.public.Group.where({ GroupId: target })
-          .select("GroupName")
-          .first()
+
+        Database.orm.public.DisabledUserBot.select("UserId")
+          .all()
           .then((db_result) => {
-            Cache.set(`group_name`, db_result?.GroupName);
+            db_result.map((id) => {
+              Cache.set(`userbot_${id}_disabled`, true);
+            });
 
-            const processNext = (i: number): void => {
-              if (i >= this.clients.length) {
-                var pesan = `✅ <b>Perintah Terkirim!</b>`;
-                pesan += `\nPerintah /next telah dikirim ke grup tujuan - ${db_result?.GroupName}`;
-                let keyb: any[] = [];
-                keyb[0] = [btn.text(`❌ Batalkan`, `regis_cancel`)];
+            return Database.orm.public.Group.where({ GroupId: target })
+              .select("GroupName")
+              .first()
+              .then((db_result) => {
+                Cache.set(`group_name`, db_result?.GroupName);
 
-                this.ctx.deleteMessage();
-                Utils.sendMessageToAdmin(this.bot, pesan, keyb);
-                return;
-              }
+                const processNext = (i: number): void => {
+                  if (i >= this.clients.length) {
+                    var pesan = `✅ <b>Perintah Terkirim!</b>`;
+                    pesan += `\nPerintah /next telah dikirim ke grup tujuan - ${db_result?.GroupName}`;
+                    let keyb: any[] = [];
+                    keyb[0] = [btn.text(`❌ Batalkan`, `regis_cancel`)];
 
-              this.clients[i]
-                .getMe()
-                .then((entity) => {
-                  return this.clients[i]
-                    .getEntity(target)
-                    .then((chat_result) => {
-                      const isDisabled = Cache.get(
-                        `userbot_${String(entity.id)}_disabled`,
-                      );
-                      if (isDisabled) return;
+                    this.ctx.deleteMessage();
+                    Utils.sendMessageToAdmin(this.bot, pesan, keyb);
+                    return;
+                  }
+
+                  this.clients[i]
+                    .getMe()
+                    .then((entity) => {
                       return this.clients[i]
-                        .sendMessage(chat_result, {
-                          message: "/next",
-                        })
-                        .catch((err) => {
-                          const fullName = entity.lastName
-                            ? `${entity.firstName} ${entity.lastName}`
-                            : entity.firstName;
-                          const errMsg = err.message.includes(
-                            `You're banned from sending messages in supergroups/channels.`,
-                          )
-                            ? `userbot mungkin dibatasi Telegram untuk mengirim pesan. Userbot akan mencoba bergabung saat ada pendaftaran dimulai.`
-                            : `userbot mungkin diblokir atau belum bergabung dalam grup.`;
-
-                          Utils.sendMessageToAdmin(
-                            this.bot,
-                            `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> gagal mengirim perintah /next ke grup, ${errMsg}`,
+                        .getEntity(target)
+                        .then((chat_result) => {
+                          const isDisabled = Cache.get(
+                            `userbot_${String(entity.id)}_disabled`,
                           );
-                        });
-                    });
-                })
-                .finally(() => {
-                  processNext(i + 1);
-                });
-            };
+                          if (isDisabled) return;
+                          return this.clients[i]
+                            .sendMessage(chat_result, {
+                              message: "/next",
+                            })
+                            .catch((err) => {
+                              const fullName = entity.lastName
+                                ? `${entity.firstName} ${entity.lastName}`
+                                : entity.firstName;
+                              const errMsg = err.message.includes(
+                                `You're banned from sending messages in supergroups/channels.`,
+                              )
+                                ? `userbot mungkin dibatasi Telegram untuk mengirim pesan. Userbot akan mencoba bergabung saat ada pendaftaran dimulai.`
+                                : `userbot mungkin diblokir atau belum bergabung dalam grup.`;
 
-            processNext(0);
+                              Utils.sendMessageToAdmin(
+                                this.bot,
+                                `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> gagal mengirim perintah /next ke grup, ${errMsg}`,
+                              );
+                            });
+                        });
+                    })
+                    .finally(() => {
+                      processNext(i + 1);
+                    });
+                };
+
+                processNext(0);
+              });
           });
         return;
       }
