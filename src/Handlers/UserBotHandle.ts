@@ -113,7 +113,7 @@ export class UserBotHandle {
 
         Utils.sendMessageToAdmin(
           this.bot,
-          `<a href='tg://user?id=${Number(this.entity.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the name") ? "is a new" : "-"} ${match?.[0]}`,
+          `<a href='tg://user?id=${Number(this.entity.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the new") ? "is a new" : "-"} ${match?.[0]}`,
         );
         UserBots.updateRoleCache(String(fullName), role);
       }
