@@ -770,11 +770,12 @@ export class BotHandle {
     }
 
     var pola = /afkmode_(.*)_(.*)/i;
-
     if ((mc = pola.exec(cbData))) {
       const type = mc[1];
 
       if (type === "return") {
+        if (String(Cache.get(`mode`)) !== "afkmode")
+          return this.ctx.deleteMessage();
         var pesan = `🧨 <b>Suck Mode</b>`;
         pesan += `\nSuck mode sedang aktif, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
         pesan += `\n\n• 🎎 Afk Semua - membuat semua userbot afk hingga permainan berakhir.`;
@@ -809,6 +810,8 @@ export class BotHandle {
       }
 
       if (type === "afkrl") {
+        if (String(Cache.get(`mode`)) !== "afkmode")
+          return this.ctx.deleteMessage();
         if (Cache.get(`allroleAfk`)) {
           Cache.del(`allroleAfk`);
         } else {
@@ -842,6 +845,8 @@ export class BotHandle {
       }
 
       if (type === "conti") {
+        if (String(Cache.get(`mode`)) !== "afkmode")
+          return this.ctx.deleteMessage();
         if (Cache.get(`continu`)) {
           Cache.del(`continu`);
         } else {
@@ -875,6 +880,16 @@ export class BotHandle {
       }
 
       if (type === "day") {
+        if (String(Cache.get(`mode`)) !== "afkmode")
+          return this.ctx.deleteMessage();
+        if (String(Cache.get(`mode`)) === "afkmode") {
+          this.ctx.deleteMessage();
+          this.ctx.answerCallbackQuery({
+            text: "⚠️ Suck mode sudah aktif.",
+            show_alert: true,
+          });
+          return;
+        }
         var pesan = `❇️ <b>Masukkan Angka</b>`;
         pesan += `\nBerapa lama Anda ingin ngehama?\nSaat ini: ${Cache.get(`afkmodeDur`)} hari.`;
         let keyb = [];
@@ -892,22 +907,24 @@ export class BotHandle {
       }
 
       if (type === "role") {
+        if (String(Cache.get(`mode`)) !== "afkmode")
+          return this.ctx.deleteMessage();
         if (!Cache.get(`afkmode${mc[2]}`)) {
           Cache.set(`afkmode${mc[2]}`, true);
         } else {
           Cache.del(`afkmode${mc[2]}`);
         }
         let keyb: any[] = [];
-        keyb.push([btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`)]);
-        keyb.push([btn.text(`🏙 Ganti Hari`, `afkmode_day_none`)]);
+        keyb.push([
+          btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
+          btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
+        ]);
         keyb.push(...this.buildRoleButtons("afkmode_role"));
         keyb.push([
           btn.text(
             `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
             `afkmode_afkrl_none`,
           ),
-        ]);
-        keyb.push([
           btn.text(
             `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
             `afkmode_conti_none`,
@@ -925,6 +942,14 @@ export class BotHandle {
       }
 
       if (type === "rlset") {
+        if (String(Cache.get(`mode`)) === "afkmode") {
+          this.ctx.deleteMessage();
+          this.ctx.answerCallbackQuery({
+            text: "⚠️ Suck mode sudah aktif.",
+            show_alert: true,
+          });
+          return;
+        }
         var pesan = `🎎 <b>Peran</b>`;
         pesan += `\nApakah Anda ingin peran berikut dikendalikan bot atau manual? Anda juga dapat mengubahnya nanti.`;
 
@@ -947,6 +972,14 @@ export class BotHandle {
       }
 
       if (type === "rolst") {
+        if (String(Cache.get(`mode`)) === "afkmode") {
+          this.ctx.deleteMessage();
+          this.ctx.answerCallbackQuery({
+            text: "⚠️ Suck mode sudah aktif.",
+            show_alert: true,
+          });
+          return;
+        }
         if (!Cache.get(`afkmode${mc[2]}`)) {
           Cache.set(`afkmode${mc[2]}`, true);
         } else {
@@ -981,13 +1014,17 @@ export class BotHandle {
           ),
           btn.text(`Lewati ${mc[2] === "no" ? "✅" : ""}`, `afkmode_vote_no`),
         ];
-        keyb[1] = [
-          btn.text(`❌ Batal`, !Cache.get(`mode`) ? `cancel_` : `close_`),
-          btn.text(
-            Cache.get(`mode`) ? `Simpan ➡️` : `Lanjut ➡️`,
-            Cache.get(`mode`) ? `afkmode_active_none` : `afkmode_rlset_none`,
-          ),
-        ];
+        if (!Cache.get(`mode`)) {
+          keyb[1] = [
+            btn.text(`❌ Batal`, !Cache.get(`mode`) ? `cancel_` : `close_`),
+            btn.text(
+              Cache.get(`mode`) ? `Simpan ➡️` : `Lanjut ➡️`,
+              Cache.get(`mode`) ? `afkmode_active_none` : `afkmode_rlset_none`,
+            ),
+          ];
+        } else {
+          keyb[1] = [btn.text(`⬅️ Kembali`, `afkmode_return_none`)];
+        }
 
         Cache.set(`useVote`, mc[2]);
         this.ctx
@@ -1016,13 +1053,17 @@ export class BotHandle {
             `afkmode_vote_no`,
           ),
         ];
-        keyb[1] = [
-          btn.text(`❌ Batal`, !Cache.get(`mode`) ? `cancel_` : `close_`),
-          btn.text(
-            Cache.get(`mode`) ? `Simpan ➡️` : `Lanjut ➡️`,
-            Cache.get(`mode`) ? `afkmode_active_none` : `afkmode_rlset_none`,
-          ),
-        ];
+        if (!Cache.get(`mode`)) {
+          keyb[1] = [
+            btn.text(`❌ Batal`, !Cache.get(`mode`) ? `cancel_` : `close_`),
+            btn.text(
+              Cache.get(`mode`) ? `Simpan ➡️` : `Lanjut ➡️`,
+              Cache.get(`mode`) ? `afkmode_active_none` : `afkmode_rlset_none`,
+            ),
+          ];
+        } else {
+          keyb[1] = [btn.text(`⬅️ Kembali`, `afkmode_return_none`)];
+        }
 
         this.ctx
           .editMessageText(pesan, {
@@ -1035,6 +1076,14 @@ export class BotHandle {
       }
 
       if (type === "active") {
+        if (String(Cache.get(`mode`)) === "afkmode") {
+          this.ctx.deleteMessage();
+          this.ctx.answerCallbackQuery({
+            text: "⚠️ Suck mode sudah aktif.",
+            show_alert: true,
+          });
+          return;
+        }
         if (!Cache.get(`useVote`))
           return this.ctx.answerCallbackQuery({
             text: "⚠️ Pilih mode pemilihan terlebih dahulu.",
@@ -1050,6 +1099,14 @@ export class BotHandle {
       }
 
       if (type === "disable") {
+        if (String(Cache.get(`mode`)) !== "afkmode") {
+          this.ctx.deleteMessage();
+          this.ctx.answerCallbackQuery({
+            text: "⚠️ Suck mode tidak aktif.",
+            show_alert: true,
+          });
+          return;
+        }
         UserBots.clearSmode();
         this.ctx.deleteMessage();
         Utils.sendMessageToAdmin(

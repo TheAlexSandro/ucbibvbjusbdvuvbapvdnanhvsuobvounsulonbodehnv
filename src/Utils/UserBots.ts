@@ -69,7 +69,6 @@ export class UserBots {
     if (!Cache.get(`target`)) {
       Cache.set(`target`, target[0]);
     }
-    const useVote = String(Cache.get("use_vote"));
 
     if (Cache.get(`allroleAfk`)) return;
     if (
@@ -83,7 +82,10 @@ export class UserBots {
     ) {
       if (msg.text.includes("Who are you gonna") && !Cache.get(`afkmodeHook`))
         return;
-      if (msg.text.includes("Time to seek the guilty!") && useVote === "no")
+      if (
+        msg.text.includes("Time to seek the guilty!") &&
+        String(Cache.get("useVote")) === "no"
+      )
         return;
       if (msg.text.includes("Who will you kill") && !Cache.get(`afkmodeMani`))
         return;

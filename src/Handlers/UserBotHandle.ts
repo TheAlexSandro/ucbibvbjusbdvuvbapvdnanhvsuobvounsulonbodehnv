@@ -215,7 +215,10 @@ export class UserBotHandle {
       if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
         const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
 
-        if (msg.text.includes("Registration") && String(Cache.get(`join`)) === "direct") {
+        if (
+          msg.text.includes("Registration") &&
+          String(Cache.get(`join`)) === "direct"
+        ) {
           this.client.getMe().then((me) => {
             const isDisabled = Cache.get(`userbot_${String(me.id)}_disabled`);
             if (isDisabled) return;
@@ -297,7 +300,7 @@ export class UserBotHandle {
 
         if (
           (msg.text.includes("Who will you") ||
-            msg.text.includes("The first subject")) &&
+            msg.text.includes("subject")) &&
           targetButton
         ) {
           if (msg.text.includes("Who will you") && !Cache.get(`afkmodeDet`))
