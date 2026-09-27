@@ -44,7 +44,7 @@ export class BotHandle {
       var pesan = `👋 Halo ${Utils.getName(this.ctx)}, selamat datang di controller!`;
       pesan += `\nKelola userbot Anda di sini.`;
       pesan += `\n\n🕹 <b>Perintah:</b>`;
-      pesan += `\n• /addc - tambahkan grup yang akan Anda gunakan untuk mengirim perintah /next.`;
+      pesan += `\n• /gc - tambahkan grup atau kelola grup yang sudah ada.`;
       pesan += `\n• /next - gunakan perintah ini untuk memicu semua userbot mengirim <code>/next</code> ke grup.`;
       pesan += `\n• /smode - (suck mode) gunakan perintah ini untuk membuat userbot bertahan hingga hari yang ditentukan, <b>salah satu userbot harus memiliki peran dokter</b>.`;
       pesan += `\n• /ubot - kelola userbot mana yang akan digunakan.`;
