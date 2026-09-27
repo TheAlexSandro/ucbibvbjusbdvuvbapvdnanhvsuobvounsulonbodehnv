@@ -382,6 +382,7 @@ export class BotHandle {
       Cache.flushAll();
       this.ctx.editMessageText(
         `✅ <b>Berhasil!</b>\nSemua cache telah dihapus.`,
+        { parse_mode: "HTML" },
       );
       return;
     }
