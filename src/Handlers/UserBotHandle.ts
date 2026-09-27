@@ -4,26 +4,22 @@ import { Cache } from "../Utils/Caches";
 import { Utils } from "../Utils/Utils";
 import type { Bot } from "grammy";
 import { UserBots } from "../Utils/UserBots";
-import type { Entity } from "teleproto/define";
 
 export class UserBotHandle {
   event: NewMessageEvent;
   client: TelegramClient;
   bot: Bot;
   clients: TelegramClient[];
-  entity: Entity | null;
   constructor(
     evn: NewMessageEvent,
     client: TelegramClient,
     bot: Bot,
     clients: TelegramClient[],
-    entity: Entity | null,
   ) {
     this.event = evn;
     this.client = client;
     this.bot = bot;
     this.clients = clients;
-    this.entity = entity;
   }
 
   public handle() {
@@ -32,115 +28,120 @@ export class UserBotHandle {
     if (msg.out) return;
     if (
       msg.isPrivate &&
-      Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"]) &&
-      this.entity instanceof Api.User
+      Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
     ) {
-      const isDisabled = Cache.get(
-        `userbot_${String(this.entity.id)}_disabled`,
-      );
-      if (isDisabled) return;
+      this.client.getMe().then((me) => {
+        const isDisabled = Cache.get(`userbot_${String(me.id)}_disabled`);
+        if (isDisabled) return;
 
-      const fullName = this.entity.lastName
-        ? `${this.entity.firstName} ${this.entity.lastName}`
-        : this.entity.firstName;
-
-      if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
-        const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
-        const targetButton = buttons.find((b: any) => {
-          return (
-            b.text?.includes("Join") &&
-            b.type?.className === "InlineButtonTypeCallback" &&
-            b.type?.data
-          );
-        });
+        const fullName = me.lastName
+          ? `${me.firstName} ${me.lastName}`
+          : me.firstName;
 
         if (
-          msg.text?.includes("Attention!") &&
-          targetButton &&
-          Cache.get(`join`)
+          msg.replyMarkup &&
+          msg.replyMarkup instanceof Api.ReplyInlineMarkup
         ) {
-          msg.getInputChat().then((entity) => {
-            this.client
-              .invoke(
-                new Api.messages.GetBotCallbackAnswer({
-                  peer: entity,
-                  msgId: msg.id,
-                  data: (targetButton as any).type.data,
-                }),
-              )
-              .catch(() => {
-                Utils.sendMessageToAdmin(
-                  this.bot,
-                  `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(this.entity?.id)}'>${fullName}</a> gagal bergabung, userbot mungkin dibatasi di grup atau terkena limit.`,
-                );
-              });
+          const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
+          const targetButton = buttons.find((b: any) => {
+            return (
+              b.text?.includes("Join") &&
+              b.type?.className === "InlineButtonTypeCallback" &&
+              b.type?.data
+            );
           });
+
+          if (
+            msg.text?.includes("Attention!") &&
+            targetButton &&
+            String(Cache.get(`join`)) === "next"
+          ) {
+            msg.getInputChat().then((entity) => {
+              this.client
+                .invoke(
+                  new Api.messages.GetBotCallbackAnswer({
+                    peer: entity,
+                    msgId: msg.id,
+                    data: (targetButton as any).type.data,
+                  }),
+                )
+                .catch(() => {
+                  Utils.sendMessageToAdmin(
+                    this.bot,
+                    `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(me?.id)}'>${fullName}</a> gagal bergabung, userbot mungkin dibatasi di grup atau terkena limit.`,
+                  );
+                });
+            });
+          }
+
+          const getMode = Cache.get("mode");
+          if (getMode === "afkmode") {
+            UserBots.handleAfkMode(this.client, msg, buttons, this.bot);
+          }
         }
 
-        const getMode = Cache.get("mode");
-        if (getMode === "afkmode") {
-          UserBots.handleAfkMode(this.client, msg, buttons, this.bot);
-        }
-      }
-
-      if (msg.text.includes("Couldn't join the game")) {
-        Utils.sendMessageToAdmin(
-          this.bot,
-          `🤚 <a href='tg://user?id=${Number(this.entity.id)}'>${fullName}</a> tidak dapat bergabung tepat waktu.`,
-        );
-      }
-
-      if (
-        msg.text.includes("You're") ||
-        msg.text.includes("You are") ||
-        msg.text.includes("is a new")
-      ) {
-        if (msg.text.includes("you're already in the game")) return;
-
-        const match = msg.text.match(
-          /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Modifier}\u{200D}\u{FE0F}\u{FE0E}]+\s*([A-Za-z]+)/u,
-        );
-        const role = match?.[1]?.toLowerCase();
-
-        if (role === "doctor") {
-          Cache.set(`doctor`, fullName);
-        }
         if (
-          msg.text.includes("is a new") &&
-          !msg.text.includes(String(fullName))
-        )
-          return;
+          msg.text.includes("Couldn't join the game") ||
+          msg.text.includes("Tidak dapat bergabung")
+        ) {
+          Utils.sendMessageToAdmin(
+            this.bot,
+            `🤚 <a href='tg://user?id=${Number(me.id)}'>${fullName}</a> tidak dapat bergabung tepat waktu.`,
+          );
+        }
 
-        Utils.sendMessageToAdmin(
-          this.bot,
-          `<a href='tg://user?id=${Number(this.entity.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the new") ? "is a new" : "-"} ${match?.[0]}`,
-        );
-        UserBots.updateRoleCache(String(fullName), role);
-      }
+        if (
+          msg.text.includes("You're") ||
+          msg.text.includes("You are") ||
+          msg.text.includes("is a new")
+        ) {
+          if (msg.text.includes("you're already in the game")) return;
 
-      if (
-        msg.text.includes("You have been killed") ||
-        msg.text.includes("Congrats on winning") ||
-        msg.text.includes("You stayed idle")
-      ) {
-        UserBots.incrementDead(
-          1,
-          String(fullName),
-          String(this.entity.id),
-          this.bot,
-          msg.text.includes("Congrats on winning"),
-        );
-      }
+          const match = msg.text.match(
+            /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Modifier}\u{200D}\u{FE0F}\u{FE0E}]+\s*([A-Za-z]+)/u,
+          );
+          const role = match?.[1]?.toLowerCase();
 
-      if (msg.text.includes("doctor patched you up")) {
-        UserBots.incrementDead(
-          -1,
-          String(fullName),
-          String(this.entity.id),
-          this.bot,
-          false,
-        );
-      }
+          if (role === "doctor") {
+            Cache.set(`doctor`, fullName);
+          }
+          if (
+            msg.text.includes("is a new") &&
+            !msg.text.includes(String(fullName))
+          )
+            return;
+
+          Utils.sendMessageToAdmin(
+            this.bot,
+            `<a href='tg://user?id=${Number(me.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the new") ? "is a new" : "-"} ${match?.[0]}`,
+          );
+          UserBots.updateRoleCache(String(fullName), role);
+        }
+
+        if (
+          msg.text.includes("You have been killed") ||
+          msg.text.includes("Congrats on winning") ||
+          msg.text.includes("You stayed idle")
+        ) {
+          UserBots.incrementDead(
+            1,
+            String(fullName),
+            String(me.id),
+            this.bot,
+            msg.text.includes("Congrats on winning"),
+          );
+        }
+
+        if (msg.text.includes("doctor patched you up")) {
+          UserBots.incrementDead(
+            -1,
+            String(fullName),
+            String(me.id),
+            this.bot,
+            false,
+          );
+        }
+      });
     }
 
     if (
@@ -214,7 +215,7 @@ export class UserBotHandle {
       if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
         const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
 
-        if (msg.text.includes("Registration") && Cache.get(`join`)) {
+        if (msg.text.includes("Registration") && String(Cache.get(`join`)) === "direct") {
           this.client.getMe().then((me) => {
             const isDisabled = Cache.get(`userbot_${String(me.id)}_disabled`);
             if (isDisabled) return;

@@ -39,39 +39,13 @@ const initUserbot = async (stringSession: string) => {
   tgClients.push(tgClient);
 
   tgClient.addEventHandler((event: NewMessageEvent) => {
-    if (event.message.isPrivate) {
-      event.client?.getMe().then((entity) => {
-        const handlers = new UserBotHandle(
-          event,
-          tgClient,
-          bot,
-          tgClients,
-          entity,
-        );
-        return handlers.handle();
-      });
-    } else {
-      const handlers = new UserBotHandle(event, tgClient, bot, tgClients, null);
-      return handlers.handle();
-    }
+    const handlers = new UserBotHandle(event, tgClient, bot, tgClients);
+    return handlers.handle();
   }, new NewMessage({}));
 
   tgClient.addEventHandler((event: EditedMessageEvent) => {
-    if (event.message.isPrivate) {
-      event.client?.getMe().then((entity) => {
-        const handlers = new UserBotHandle(
-          event,
-          tgClient,
-          bot,
-          tgClients,
-          entity,
-        );
-        return handlers.editedMessageHandle();
-      });
-    } else {
-      const handlers = new UserBotHandle(event, tgClient, bot, tgClients, null);
-      return handlers.editedMessageHandle();
-    }
+    const handlers = new UserBotHandle(event, tgClient, bot, tgClients);
+    return handlers.editedMessageHandle();
   }, new EditedMessage({}));
 
   const info = await tgClient.getMe();
