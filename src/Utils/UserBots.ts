@@ -196,6 +196,7 @@ export class UserBots {
     fullName: string,
     userId: string,
     bot: Bot,
+    lynched: boolean,
   ) {
     this.deadUpdateQueue = this.deadUpdateQueue.then(() => {
       const getDead = Cache.get(`dead`);
@@ -210,7 +211,7 @@ export class UserBots {
         Cache.set(`hasSentKill_${userId}`, true);
         Utils.sendMessageToAdmin(
           bot,
-          `☠️ <b>Dibunuh!</b>\nUserbot <a href='tg://user?id=${userId}'>${fullName}</a> dibunuh dalam permainan.`,
+          `☠️ <b>Dead!</b>\nUserbot <a href='tg://user?id=${userId}'>${fullName}</a> ${lynched ? 'telah digantung' : 'dibunuh dalam permainan'}.`,
         );
       }
     });

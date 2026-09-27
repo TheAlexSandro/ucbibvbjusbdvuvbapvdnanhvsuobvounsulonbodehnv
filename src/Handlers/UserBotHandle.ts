@@ -128,6 +128,7 @@ export class UserBotHandle {
           String(fullName),
           String(this.entity.id),
           this.bot,
+          msg.text.includes("Congrats on winning"),
         );
       }
 
@@ -137,6 +138,7 @@ export class UserBotHandle {
           String(fullName),
           String(this.entity.id),
           this.bot,
+          false,
         );
       }
     }
