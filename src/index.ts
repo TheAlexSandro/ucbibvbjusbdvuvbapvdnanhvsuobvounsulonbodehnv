@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import { Bot, type Context } from "grammy";
-import { TelegramClient } from "teleproto";
+import { Api, TelegramClient } from "teleproto";
 import {
   NewMessage,
   NewMessageEvent,
@@ -28,7 +28,8 @@ while (process.env[`SESSION_STRING_${i}`] !== undefined) {
   i++;
 }
 
-const initUserbot = async (stringSession: string) => {
+const userInfos: Api.User[] = [];
+const initUserbot = async (stringSession: string, idx: number) => {
   const session = new StringSession(stringSession);
   const tgClient = new TelegramClient(session, apiId, apiHash, {
     connectionRetries: 5,
@@ -36,21 +37,27 @@ const initUserbot = async (stringSession: string) => {
   });
 
   await tgClient.connect();
-  tgClients.push(tgClient);
+
+  const me = (await tgClient.getMe()) as Api.User;
+  tgClients[idx] = tgClient;
+  userInfos[idx] = me;
 
   tgClient.addEventHandler((event: NewMessageEvent) => {
-    const handlers = new UserBotHandle(event, tgClient, bot, tgClients);
-    return handlers.handle();
+    return new UserBotHandle(event, tgClient, bot, tgClients, me).handle();
   }, new NewMessage({}));
 
   tgClient.addEventHandler((event: EditedMessageEvent) => {
-    const handlers = new UserBotHandle(event, tgClient, bot, tgClients);
-    return handlers.editedMessageHandle();
+    return new UserBotHandle(
+      event,
+      tgClient,
+      bot,
+      tgClients,
+      me,
+    ).editedMessageHandle();
   }, new EditedMessage({}));
 
-  const info = await tgClient.getMe();
   console.log(
-    `CONNECTED USERBOT ${info.firstName} - ${info.username} [${Number(info.id)}]`,
+    `CONNECTED USERBOT ${me.firstName} - ${me.username} [${me.id}]`,
   );
 };
 
@@ -68,7 +75,8 @@ bot.on("callback_query", (ctx: NonNullable<Context>) => {
 
 (async () => {
   await initDb();
-  await Promise.all(ssList.map((ss) => initUserbot(ss)));
+  await Promise.all(ssList.map((ss, idx) => initUserbot(ss, idx)));
+
   Database.orm.public.DisabledUserBot.select("UserId")
     .all()
     .then(async (db_result) => {

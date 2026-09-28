@@ -43,7 +43,7 @@ export class UserBots {
       !getRoleList.includes("doctor") &&
       (!getRoleList.includes("don") || !getRoleList.includes("maniac"))
     ) {
-      if (!getRoleList.includes("doctor")) {
+      if (!getRoleList.includes("doctor") && !Cache.get("continu")) {
         if (!Cache.get(`hasSentWarnDoc`)) {
           Cache.set(`hasSentWarnDoc`, true);
           this.clearSmode();
