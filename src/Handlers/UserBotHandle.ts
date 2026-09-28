@@ -180,17 +180,17 @@ export class UserBotHandle {
       ) {
         if (Cache.get(`hasSentGame`)) return;
         Cache.set(`hasSentGame`, true);
-        msg.respond({ message: "/game@TrueMafiaBot" }).catch(() => {
-          Cache.del(`hasSentGame`);
-        });
+        setTimeout(() => {
+          msg.respond({ message: "/game@TrueMafiaBot" }).catch(() => {
+            Cache.del(`hasSentGame`);
+          });
+        }, 2000);
       }
 
       if (msg.text.includes("The game begins")) {
-        if (Cache.get(`hasSentGame`)) {
-          Cache.del(`hasSentGame`);
-        }
         if (!Cache.get(`begins`)) {
           Cache.set(`begins`, true);
+          Cache.del(`hasSentGame`);
         }
         if (Cache.get(`join`)) {
           Cache.del(`join`);
