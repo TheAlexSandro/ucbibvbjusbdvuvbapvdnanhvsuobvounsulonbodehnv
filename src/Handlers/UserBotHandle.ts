@@ -173,18 +173,26 @@ export class UserBotHandle {
           );
         }
       }
-
       if (
         msg.text.includes("Game over") ||
         msg.text.includes("The game is over")
       ) {
-        if (Cache.get(`hasSentGame`)) return;
-        Cache.set(`hasSentGame`, true);
-        setTimeout(() => {
-          msg.respond({ message: "/game@TrueMafiaBot" }).catch(() => {
-            Cache.del(`hasSentGame`);
-          });
-        }, 2000);
+        setTimeout(
+          () => {
+            if (Cache.get(`hasSentGame`) || Cache.get(`sendingGame`)) return;
+            Cache.set(`sendingGame`, true, 30);
+            msg
+              .respond({ message: "/game@TrueMafiaBot" })
+              .then(() => {
+                Cache.set(`hasSentGame`, true);
+              })
+              .catch(() => {})
+              .finally(() => {
+                Cache.del(`sendingGame`);
+              });
+          },
+          3000,
+        );
       }
 
       if (msg.text.includes("The game begins")) {
@@ -192,7 +200,7 @@ export class UserBotHandle {
           Cache.set(`begins`, true);
           Cache.del(`hasSentGame`);
         }
-        if (Cache.get(`join`)) {
+        if (Cache.get(`join`) && !Cache.get(`continu`)) {
           Cache.del(`join`);
         }
       }
