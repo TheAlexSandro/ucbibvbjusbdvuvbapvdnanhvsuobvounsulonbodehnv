@@ -56,22 +56,20 @@ export class UserBotHandle {
           targetButton &&
           String(Cache.get(`join`)) === "next"
         ) {
-          msg.getInputChat().then((entity) => {
-            this.client
-              .invoke(
-                new Api.messages.GetBotCallbackAnswer({
-                  peer: entity,
-                  msgId: msg.id,
-                  data: (targetButton as any).type.data,
-                }),
-              )
-              .catch(() => {
-                Utils.sendMessageToAdmin(
-                  this.bot,
-                  `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> gagal bergabung, userbot mungkin dibatasi di grup atau terkena limit.`,
-                );
-              });
-          });
+          this.client
+            .invoke(
+              new Api.messages.GetBotCallbackAnswer({
+                peer: msg.peerId,
+                msgId: msg.id,
+                data: (targetButton as any).type.data,
+              }),
+            )
+            .catch(() => {
+              Utils.sendMessageToAdmin(
+                this.bot,
+                `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> gagal bergabung, userbot mungkin dibatasi di grup atau terkena limit.`,
+              );
+            });
         }
 
         const getMode = Cache.get("mode");
@@ -218,10 +216,6 @@ export class UserBotHandle {
           msg.text.includes("Registration") &&
           String(Cache.get(`join`)) === "direct"
         ) {
-          const isDisabled = Cache.get(
-            `userbot_${String(this.info.id)}_disabled`,
-          );
-          if (isDisabled) return;
           const targetButton = buttons.find((b: any) => {
             return (
               b.text?.includes("Join") &&
