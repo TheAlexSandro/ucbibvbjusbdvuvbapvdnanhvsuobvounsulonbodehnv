@@ -99,6 +99,7 @@ export class UserBotHandle {
           /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Modifier}\u{200D}\u{FE0F}\u{FE0E}]+\s*([A-Za-z]+)/u,
         );
         const role = match?.[1]?.toLowerCase();
+        Cache.set(`roleEmot${role}`, match?.[0]);
 
         if (role === "doctor") {
           Cache.set(`doctor`, fullName);
@@ -111,7 +112,7 @@ export class UserBotHandle {
 
         Utils.sendMessageToAdmin(
           this.bot,
-          `<a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the new") ? "is a new" : "-"} ${match?.[0]}`,
+          `<a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the new") ? "sekarang adalah" : "-"} ${match?.[0]}`,
         );
         UserBots.updateRoleCache(String(fullName), role);
       }
@@ -126,7 +127,11 @@ export class UserBotHandle {
           String(fullName),
           String(this.info.id),
           this.bot,
-          msg.text.includes("Congrats on winning"),
+          msg.text.includes("You have been killed")
+            ? "killed"
+            : msg.text.includes("Congrats on winning")
+              ? "lynch"
+              : "idle",
         );
       }
 
@@ -136,7 +141,7 @@ export class UserBotHandle {
           String(fullName),
           String(this.info.id),
           this.bot,
-          false,
+          null,
         );
       }
     }
@@ -169,11 +174,25 @@ export class UserBotHandle {
         }
       }
 
+      if (
+        msg.text.includes("Game over") ||
+        msg.text.includes("The game is over")
+      ) {
+        if (Cache.get(`hasSentGame`)) return;
+        Cache.set(`hasSentGame`, true);
+        msg.respond({ message: "/game@TrueMafiaBot" }).catch(() => {
+          Cache.del(`hasSentGame`);
+        });
+      }
+
       if (msg.text.includes("The game begins")) {
+        if (Cache.get(`hasSentGame`)) {
+          Cache.del(`hasSentGame`);
+        }
         if (!Cache.get(`begins`)) {
           Cache.set(`begins`, true);
         }
-        if (Cache.get(`join`) && !Cache.get(`continu`)) {
+        if (Cache.get(`join`)) {
           Cache.del(`join`);
         }
       }
@@ -182,6 +201,29 @@ export class UserBotHandle {
         Cache.set(`roleSepaDon`, true);
         Cache.del(`hasSent`);
         Cache.del(`hasSentWarnKill`);
+        const getUbot = String(process.env["USERBOT"]).split(",");
+        getUbot.map((id: string) => {
+          Cache.del(`hasSentKill_${id}`);
+        });
+      }
+
+      if (msg.text.includes("Game canceled")) {
+        Cache.del(`role`);
+        if (!Cache.get(`continu`)) {
+          UserBots.clearSmode();
+        } else {
+          if (!Cache.get(`join`)) {
+            Cache.set(`join`, "direct");
+          }
+        }
+        Cache.del(`hasSent`);
+        Cache.del(`target`);
+        Cache.del(`roleSepaDon`);
+        Cache.del(`begins`);
+        Cache.del(`hasSentWarnDoc`);
+        Cache.del(`hasSentWarnKill`);
+        Cache.del(`doctor`);
+        Cache.del(`dayNow`);
         const getUbot = String(process.env["USERBOT"]).split(",");
         getUbot.map((id: string) => {
           Cache.del(`hasSentKill_${id}`);
@@ -202,6 +244,7 @@ export class UserBotHandle {
           Cache.del(`hasSentWarnKill`);
           Cache.del(`doctor`);
           Cache.del(`dayNow`);
+
           const getUbot = String(process.env["USERBOT"]).split(",");
           getUbot.map((id: string) => {
             Cache.del(`hasSentKill_${id}`);

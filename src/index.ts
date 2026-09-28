@@ -56,9 +56,7 @@ const initUserbot = async (stringSession: string, idx: number) => {
     ).editedMessageHandle();
   }, new EditedMessage({}));
 
-  console.log(
-    `CONNECTED USERBOT ${me.firstName} - ${me.username} [${me.id}]`,
-  );
+  console.log(`CONNECTED USERBOT ${me.firstName} - ${me.username} [${me.id}]`);
 };
 
 const app = express();
@@ -83,20 +81,11 @@ bot.on("callback_query", (ctx: NonNullable<Context>) => {
       const disabledSet = new Set(
         db_result.map((row) => row.UserId.toString()),
       );
-
-      await Promise.all(
-        tgClients.map(async (client, index) => {
-          try {
-            const me = await client.getMe();
-            const isDisabled = disabledSet.has(me.id.toString());
-            if (isDisabled) {
-              Cache.set(`userbot_${String(me.id)}_disabled`, true);
-            }
-          } catch (err) {
-            console.log(`Client ${index} gagal getMe saat sync cache:`, err);
-          }
-        }),
-      );
+      userInfos.forEach((me) => {
+        if (disabledSet.has(String(me.id))) {
+          Cache.set(`userbot_${String(me.id)}_disabled`, true);
+        }
+      });
 
       console.log("Cache disabled userbot berhasil di-sync dari DB.");
     });

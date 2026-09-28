@@ -45,6 +45,7 @@ export class BotHandle {
       pesan += `\nKelola userbot Anda di sini.`;
       pesan += `\n\n🕹 <b>Perintah:</b>`;
       pesan += `\n• /gc - tambahkan grup atau kelola grup yang sudah ada.`;
+      pesan += `\n• /getrole - dapatkan informasi tentang peran userbot.`;
       pesan += `\n• /next - gunakan perintah ini untuk memicu semua userbot mengirim <code>/next</code> ke grup.`;
       pesan += `\n• /smode - (suck mode) gunakan perintah ini untuk membuat userbot bertahan hingga hari yang ditentukan, <b>salah satu userbot harus memiliki peran dokter</b>.`;
       pesan += `\n• /ubot - kelola userbot mana yang akan digunakan.`;
@@ -65,6 +66,38 @@ export class BotHandle {
       this.ctx.reply(pesan, {
         parse_mode: "HTML",
         reply_markup: markup.inlineKeyboard(keyb),
+      });
+      return;
+    }
+
+    var pola = /^\/getrole$/i;
+    if (pola.exec(this.ctx.message?.text!)) {
+      const getRole = Cache.get(`role`);
+      if (!getRole)
+        return this.ctx.reply(`⚠️ <b>Perhatian!</b>\nPermainan belum dimulai.`);
+      this.ctx.reply(`⏳ Memproses...`).then((message_result) => {
+        const parsed = Object.fromEntries(
+          String(getRole)
+            .split(",")
+            .map((pair: string) => {
+              const [key, value] = pair.split(":");
+              return [key.trim(), value.trim()];
+            }),
+        );
+        const result = Object.entries(parsed)
+          .map(([key, value]) => `• ${key} - ${Cache.get(`roleEmot${value}`)}`)
+          .join("\n");
+
+        var pesan = `🎎 <b>Peran</b>`;
+        pesan += `\nBerikut adalah daftar peran semua userbot yang berada dalam permainan:`;
+        pesan += `\n${result}`;
+
+        this.bot.api.editMessageText(
+          message_result.chat.id,
+          message_result.message_id,
+          pesan,
+          { parse_mode: "HTML" },
+        );
       });
       return;
     }
@@ -130,7 +163,8 @@ export class BotHandle {
     if (pola.exec(this.ctx.message?.text!)) {
       if (Cache.get(`join`))
         return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nHanya 1 grup setiap saat.`,
+          `⚠️ <b>Perhatian!</b>\nHanya 1 grup setiap saat - ${Cache.get(`group_name`)}.`,
+          { parse_mode: "HTML" },
         );
       this.ctx.reply(`⏳ Memproses...`).then((result) => {
         var pesan = `👥 <b>Pilih Grup</b>`;
@@ -161,7 +195,10 @@ export class BotHandle {
     var pola = /^\/smode$/i;
     if (pola.exec(this.ctx.message?.text!)) {
       if (!Cache.get(`group_name`))
-        return this.ctx.reply(`⚠️ Belum ada grup yang ditentukan.`);
+        return this.ctx.reply(
+          `⚠️ <b>Perhatian!</b>\nBelum ada grup yang ditentukan.`,
+          { parse_mode: "HTML" },
+        );
       this.ctx.reply(`⏳ Memproses...`).then((result) => {
         if (Cache.get("mode") === "afkmode") {
           var pesan = `🧨 <b>Suck Mode</b>`;
@@ -848,8 +885,10 @@ export class BotHandle {
         if (String(Cache.get(`mode`)) !== "afkmode")
           return this.ctx.deleteMessage();
         if (Cache.get(`continu`)) {
+          Cache.del(`join`);
           Cache.del(`continu`);
         } else {
+          Cache.set(`join`, "direct");
           Cache.set(`continu`, true);
         }
         let keyb: any[] = [];
