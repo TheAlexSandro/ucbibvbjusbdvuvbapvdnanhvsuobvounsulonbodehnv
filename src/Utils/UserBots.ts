@@ -3,12 +3,6 @@ import { Cache } from "./Caches";
 import { Utils } from "./Utils";
 import type { Bot } from "grammy";
 
-let intervalId: NodeJS.Timeout | null = null;
-let attempts = 0;
-let consecutiveFailures = 0;
-const MAX_ATTEMPTS = 30;
-const MAX_CONSECUTIVE_FAILURES = 3;
-
 export class UserBots {
   private static getTarget(obj: string) {
     const parsed = Object.fromEntries(
@@ -18,6 +12,7 @@ export class UserBots {
       }),
     );
     const excluded = [
+      //EN
       "doctor",
       "don",
       "hooker",
@@ -29,9 +24,21 @@ export class UserBots {
       "detective",
       "sergeant",
       "journalist",
+      //ID
+      "dokter",
+      "boss lana",
+      "pelacur",
+      "gelandangan",
+      "gila",
+      "pengacara",
+      "kamikaze",
+      "mafia",
+      "detektif",
+      "sersan",
+      "wartawan",
     ];
     const result = Object.entries(parsed)
-      .filter(([, value]) => !excluded.includes(value))
+      .filter(([, value]) => !excluded.includes(value.toLocaleLowerCase()))
       .map(([key]) => key);
 
     return result;
@@ -46,10 +53,16 @@ export class UserBots {
     if (!Cache.get(`begins`)) return;
     const getRoleList = String(Cache.get(`role`));
     if (
-      !getRoleList.includes("doctor") &&
-      (!getRoleList.includes("don") || !getRoleList.includes("maniac"))
+      !(getRoleList.includes("doctor") || getRoleList.includes("dokter")) &&
+      (!getRoleList.includes("don") ||
+        !getRoleList.includes("maniac") ||
+        !getRoleList.includes("boss lana") ||
+        !getRoleList.includes("gila"))
     ) {
-      if (!getRoleList.includes("doctor") && !Cache.get("continu")) {
+      if (
+        !(getRoleList.includes("doctor") || getRoleList.includes("dokter")) &&
+        !Cache.get("continu")
+      ) {
         if (!Cache.get(`hasSentWarnDoc`)) {
           Cache.set(`hasSentWarnDoc`, true);
           this.clearSmode();
@@ -60,7 +73,12 @@ export class UserBots {
         }
       }
 
-      if (!getRoleList.includes("don") && !getRoleList.includes("maniac")) {
+      if (
+        !getRoleList.includes("don") ||
+        !getRoleList.includes("maniac") ||
+        !getRoleList.includes("boss lana") ||
+        !getRoleList.includes("gila")
+      ) {
         if (!Cache.get(`hasSentWarnKill`)) {
           Cache.set(`hasSentWarnKill`, true);
           Utils.sendMessageToAdmin(
@@ -81,22 +99,37 @@ export class UserBots {
       msg.text.includes("Who will you") ||
       msg.text.includes("Whose glass") ||
       msg.text.includes("The Mafia is voting") ||
-      msg.text.includes("Time to seek the guilty!") ||
+      msg.text.includes("Time to seek the guilty") ||
       msg.text.includes("Who are you") ||
       msg.text.includes("Who's today's") ||
-      msg.text.includes("Who is getting")
+      msg.text.includes("Who is getting") ||
+      msg.text.includes("Siapa yang") ||
+      msg.text.includes("Botol kaca") ||
+      msg.text.includes("Mafia memilih korban") ||
+      msg.text.includes("Saatnya mencari yang bersalah") ||
+      msg.text.includes("cerita")
     ) {
-      if (msg.text.includes("Who are you gonna") && !Cache.get(`afkmodeHook`))
+      if (
+        (msg.text.includes("Who are you gonna") ||
+          msg.text.includes("Siapa yang akan Anda gedor")) &&
+        !Cache.get(`afkmodeHook`)
+      )
         return;
       if (
-        msg.text.includes("Time to seek the guilty!") &&
+        (msg.text.includes("Time to seek the guilty") ||
+          msg.text.includes("Saatnya mencari yang bersalah")) &&
         String(Cache.get("useVote")) === "no"
       )
         return;
-      if (msg.text.includes("Who will you kill") && !Cache.get(`afkmodeMani`))
+      if (
+        (msg.text.includes("Who will you kill") ||
+          msg.text.includes("Siapa yang akan Anda bunuh")) &&
+        !Cache.get(`afkmodeMani`)
+      )
         return;
       if (
-        msg.text.includes("Who is getting the gifts") &&
+        (msg.text.includes("Who is getting the gifts") ||
+          msg.text.includes("Siapa yang akan mendapatkan hadiah")) &&
         !Cache.get(`afkmodeSanta`)
       )
         return;
@@ -119,10 +152,15 @@ export class UserBots {
           )
           .catch(() => {});
       } else {
-        if (msg.text.includes("Who are you gonna") && !Cache.get(`afkmodeHook`))
+        if (
+          (msg.text.includes("Who are you gonna") ||
+            msg.text.includes("Siapa yang akan Anda gedor")) &&
+          !Cache.get(`afkmodeHook`)
+        )
           return;
         if (
-          msg.text.includes("Who is getting the gifts") &&
+          (msg.text.includes("Who is getting the gifts") ||
+            msg.text.includes("Siapa yang akan mendapatkan hadiah")) &&
           !Cache.get(`afkmodeSanta`)
         )
           return;
@@ -149,10 +187,14 @@ export class UserBots {
       }
     }
 
-    if (msg.text.includes("It's time to act") && Cache.get(`afkmodeDet`)) {
+    if (
+      (msg.text.includes("It's time to act") ||
+        msg.text.includes("Saatnya bertindak")) &&
+      Cache.get(`afkmodeDet`)
+    ) {
       const targetButton = buttons.find((b: any) => {
         return (
-          b.text?.includes("Check") &&
+          (b.text?.includes("Check") || b.text?.includes("Memeriksa")) &&
           b.type?.className === "InlineButtonTypeCallback" &&
           b.type?.data
         );
@@ -246,6 +288,7 @@ export class UserBots {
 
   static clearAll(type?: string) {
     Cache.del(`role`);
+    Cache.del(`begins`);
     if (!Cache.get(`continu`)) {
       this.clearSmode();
     } else {
@@ -253,11 +296,11 @@ export class UserBots {
         Cache.set(`join`, "direct");
       }
     }
+    Cache.del(`dead`);
     Cache.del(`hasSent`);
     Cache.del(`hasSentGame`);
     Cache.del(`target`);
     Cache.del(`roleSepaDon`);
-    Cache.del(`begins`);
     Cache.del(`hasSentWarnDoc`);
     Cache.del(`hasSentWarnKill`);
     Cache.del(`doctor`);

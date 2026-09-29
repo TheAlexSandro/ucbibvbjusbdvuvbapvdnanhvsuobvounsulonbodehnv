@@ -46,17 +46,19 @@ export class UserBotHandle {
         const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
         const targetButton = buttons.find((b: any) => {
           return (
-            b.text?.includes("Join") &&
+            (b.text?.includes("Join") || b.text?.includes("Gabung")) &&
             b.type?.className === "InlineButtonTypeCallback" &&
             b.type?.data
           );
         });
 
         if (
-          msg.text?.includes("Attention!") &&
+          (msg.text?.includes("Attention!") ||
+            msg.text?.includes("Perhatian!")) &&
           targetButton &&
           String(Cache.get(`join`)) === "next"
         ) {
+          if (Cache.get(`begins`)) return;
           this.client
             .invoke(
               new Api.messages.GetBotCallbackAnswer({
@@ -92,21 +94,26 @@ export class UserBotHandle {
       if (
         msg.text.includes("You're") ||
         msg.text.includes("You are") ||
-        msg.text.includes("is a new")
+        msg.text.includes("is a new") ||
+        msg.text.includes("Anda adalah")
       ) {
-        if (msg.text.includes("you're already in the game")) return;
+        if (
+          msg.text.includes("you're already in the game") ||
+          msg.text.includes("Anda sudah dalam game")
+        )
+          return;
 
         const match = msg.text.match(
-          /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Modifier}\u{200D}\u{FE0F}\u{FE0E}]+\s*([A-Za-z]+)/u,
+          /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Modifier}\u{200D}\u{FE0F}\u{FE0E}]+\s*([A-Za-z]+(?:\s[A-Za-z]+)*)/u,
         );
         const role = match?.[1]?.toLowerCase();
         Cache.set(`roleEmot${role}`, match?.[0]);
 
-        if (role === "doctor") {
+        if (role === "doctor" || role === "dokter") {
           Cache.set(`doctor`, fullName);
         }
         if (
-          msg.text.includes("is a new") &&
+          (msg.text.includes("is a new") || msg.text.includes("baru")) &&
           !msg.text.includes(String(fullName))
         )
           return;
@@ -121,22 +128,30 @@ export class UserBotHandle {
       if (
         msg.text.includes("You have been killed") ||
         msg.text.includes("Congrats on winning") ||
-        msg.text.includes("You stayed idle")
+        msg.text.includes("You stayed idle") ||
+        msg.text.includes("Anda dibunuh") ||
+        msg.text.includes("Selamat, Anda telah") ||
+        msg.text.includes("Anda tetap menganggur")
       ) {
         UserBots.incrementDead(
           1,
           String(fullName),
           String(this.info.id),
           this.bot,
-          msg.text.includes("You have been killed")
+          msg.text.includes("You have been killed") ||
+            msg.text.includes("Anda dibunuh")
             ? "killed"
-            : msg.text.includes("Congrats on winning")
+            : msg.text.includes("Congrats on winning") ||
+                msg.text.includes("Selamat, Anda telah")
               ? "lynch"
               : "idle",
         );
       }
 
-      if (msg.text.includes("doctor patched you up")) {
+      if (
+        msg.text.includes("patched you up") ||
+        msg.text.includes("menyembukan Anda")
+      ) {
         UserBots.incrementDead(
           -1,
           String(fullName),
@@ -153,7 +168,9 @@ export class UserBotHandle {
     ) {
       if (
         msg.text.includes("Game over") ||
-        msg.text.includes("The game is over")
+        msg.text.includes("The game is over") ||
+        msg.text.includes("Game over") ||
+        msg.text.includes("Permainan Berakhir")
       ) {
         if (Cache.get(`userbot_${String(this.info.id)}_disabled`)) return;
         GameLoopEvents.emit("gameOverDetected", String(this.info.id), () =>
@@ -161,7 +178,10 @@ export class UserBotHandle {
         );
       }
 
-      if (msg.text.includes("Registration")) {
+      if (
+        msg.text.includes("Registration") ||
+        msg.text.includes("Pendaftaran")
+      ) {
         GameLoopEvents.emit("registrationDetected");
       }
 
@@ -171,7 +191,7 @@ export class UserBotHandle {
         Cache.set(`total`, total);
       }
 
-      const matchDay = msg.text.match(/Day\s+(\d+)/i);
+      const matchDay = msg.text.match(/(?:Day|Hari)\s+(\d+)/i);
       const dayNumber = matchDay ? Number(matchDay[1]) : null;
       if (dayNumber !== Number(Cache.get(`dayNow`) ?? 0)) {
         Cache.set(`dayNow`, dayNumber);
@@ -189,7 +209,10 @@ export class UserBotHandle {
         }
       }
 
-      if (msg.text.includes("The game begins")) {
+      if (
+        msg.text.includes("The game begins") ||
+        msg.text.includes("Permainan dimulai")
+      ) {
         if (!Cache.get(`begins`)) {
           Cache.set(`begins`, true);
           Cache.del(`hasSentGame`);
@@ -199,7 +222,10 @@ export class UserBotHandle {
         }
       }
 
-      if (msg.text.includes("The Night Falls")) {
+      if (
+        msg.text.includes("The Night Falls") ||
+        msg.text.includes("Malam yang mengerikan")
+      ) {
         Cache.set(`roleSepaDon`, true);
         Cache.del(`hasSent`);
         Cache.del(`hasSentWarnKill`);
@@ -209,11 +235,18 @@ export class UserBotHandle {
         });
       }
 
-      if (msg.text.includes("Game canceled")) {
+      if (
+        msg.text.includes("Game canceled") ||
+        msg.text.includes("Permainan dibatalkan")
+      ) {
         UserBots.clearAll("1");
       }
 
-      if (msg.text.includes("#ADVERTISING") || msg.text.includes("Game over")) {
+      if (
+        msg.text.includes("#ADVERTISING") ||
+        msg.text.includes("Game over") ||
+        msg.text.includes("Permainan berakhir")
+      ) {
         if (Cache.get(`role`)) {
           UserBots.clearAll();
         }
@@ -223,12 +256,14 @@ export class UserBotHandle {
         const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
 
         if (
-          msg.text.includes("Registration") &&
+          (msg.text.includes("Registration") ||
+            msg.text.includes("Pendaftaran")) &&
           String(Cache.get(`join`)) === "direct"
         ) {
+          if (Cache.get(`begins`)) return;
           const targetButton = buttons.find((b: any) => {
             return (
-              b.text?.includes("Join") &&
+              (b.text?.includes("Join") || b.text?.includes("Gabung")) &&
               b.type?.className === "InlineButtonTypeUrl" &&
               b.type?.url
             );
@@ -253,7 +288,8 @@ export class UserBotHandle {
         }
 
         if (
-          msg.text.includes("Are you sure about lynching") &&
+          (msg.text.includes("Are you sure about lynching") ||
+            msg.text.includes("Anda yakin ingin menggantung")) &&
           msg.text.includes(String(Cache.get(`target`))) &&
           Cache.get(`useVote`) === "yes"
         ) {
@@ -305,10 +341,17 @@ export class UserBotHandle {
           callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
 
         if (
-          (msg.text.includes("Who will you") || msg.text.includes("subject")) &&
+          (msg.text.includes("Who will you") ||
+            msg.text.includes("subject") ||
+            msg.text.includes("Siapa yang") ||
+            msg.text.includes("subjek")) &&
           targetButton
         ) {
-          if (msg.text.includes("Who will you") && !Cache.get(`afkmodeDet`))
+          if (
+            (msg.text.includes("Who will you") ||
+              msg.text.includes("Siapa yang")) &&
+            !Cache.get(`afkmodeDet`)
+          )
             return;
 
           this.client
