@@ -14,6 +14,7 @@ import { Cache } from "./Utils/Caches";
 
 import { UserBotHandle } from "./Handlers/UserBotHandle";
 import { BotHandle } from "./Handlers/BotHandle";
+import { UserBots } from "./Utils/UserBots";
 
 const apiId = Number(process.env["API_ID"]);
 const apiHash = String(process.env["API_HASH"]);
@@ -42,6 +43,7 @@ const initUserbot = async (stringSession: string, idx: number) => {
   tgClients[idx] = tgClient;
   userInfos[idx] = me;
 
+  UserBots.setMafiaBotEntity(tgClient, String(me.id));
   tgClient.addEventHandler((event: NewMessageEvent) => {
     return new UserBotHandle(event, tgClient, bot, tgClients, me).handle();
   }, new NewMessage({}));

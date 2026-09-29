@@ -259,9 +259,8 @@ export class UserBotHandle {
         if (
           (msg.text.includes("Registration") ||
             msg.text.includes("Pendaftaran")) &&
-          String(Cache.get(`join`)) === "direct"
+          ["direct", "next"].includes(String(Cache.get(`join`)))
         ) {
-          if (Cache.get(`begins`)) return;
           const targetButton = buttons.find((b: any) => {
             return (
               (b.text?.includes("Join") || b.text?.includes("Gabung")) &&
@@ -273,18 +272,21 @@ export class UserBotHandle {
           if (targetButton) {
             const url = (targetButton as any).type.url;
             const parsed = new URL(url);
-            const username = parsed.pathname.slice(1);
             const startParam = String(parsed.searchParams.get("start"));
-            this.client.getEntity(username).then((entity) => {
-              return this.client.invoke(
-                new Api.messages.StartBot({
-                  bot: entity,
-                  peer: entity,
-                  randomId: BigInt(Math.floor(Math.random() * 1e18)) as any,
-                  startParam,
-                }),
-              );
-            });
+            UserBots.getMafiaBotEntity(
+              this.client,
+              String(this.info.id),
+              (error, result) => {
+                return this.client.invoke(
+                  new Api.messages.StartBot({
+                    bot: result,
+                    peer: result,
+                    randomId: BigInt(Math.floor(Math.random() * 1e18)) as any,
+                    startParam,
+                  }),
+                );
+              },
+            );
           }
         }
 

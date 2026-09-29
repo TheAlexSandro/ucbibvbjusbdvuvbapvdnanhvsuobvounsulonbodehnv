@@ -38,7 +38,11 @@ export class BotHandle {
     const chat = this.ctx.chat;
     const isAdmin = admins.find((id: string) => id === String(chat?.id));
 
-    if (!isAdmin) return this.ctx.reply(`⚠️ Access Denied.`);
+    if (!isAdmin)
+      return this.ctx.reply(
+        `⚠️ <b>Access Denied!</b>\nYou're not authorized to use this bot.`,
+        { parse_mode: "HTML" },
+      );
     var pola = /^\/start$/i;
     if (pola.exec(this.ctx.message?.text!)) {
       var pesan = `👋 Halo ${Utils.getName(this.ctx)}, selamat datang di controller!`;
