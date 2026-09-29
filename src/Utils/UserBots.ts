@@ -80,7 +80,7 @@ export class UserBots {
       msg.text.includes("Botol kaca") ||
       msg.text.includes("Mafia memilih korban") ||
       msg.text.includes("Saatnya mencari yang bersalah") ||
-      msg.text.includes("cerita")
+      msg.text.includes("Tentang siapa")
     ) {
       if (
         (msg.text.includes("Who are you gonna") ||

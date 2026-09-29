@@ -58,7 +58,6 @@ export class UserBotHandle {
           targetButton &&
           String(Cache.get(`join`)) === "next"
         ) {
-          if (Cache.get(`begins`)) return;
           this.client
             .invoke(
               new Api.messages.GetBotCallbackAnswer({
@@ -167,6 +166,25 @@ export class UserBotHandle {
       String(msg.chatId) === String(Cache.get(`groupTarget`)) &&
       Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
     ) {
+      if (
+        msg.text.includes("Game over") ||
+        msg.text.includes("The game is over") ||
+        msg.text.includes("Game over") ||
+        msg.text.includes("Permainan Berakhir")
+      ) {
+        if (Cache.get(`userbot_${String(this.info.id)}_disabled`)) return;
+        GameLoopEvents.emit("gameOverDetected", String(this.info.id), () =>
+          msg.respond({ message: "/game@TrueMafiaBot" }),
+        );
+      }
+
+      if (
+        msg.text.includes("Registration") ||
+        msg.text.includes("Pendaftaran")
+      ) {
+        GameLoopEvents.emit("registrationDetected");
+      }
+
       if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
         const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
 
@@ -230,25 +248,6 @@ export class UserBotHandle {
               .catch(() => {});
           }
         }
-      }
-
-      if (
-        msg.text.includes("Game over") ||
-        msg.text.includes("The game is over") ||
-        msg.text.includes("Game over") ||
-        msg.text.includes("Permainan Berakhir")
-      ) {
-        if (Cache.get(`userbot_${String(this.info.id)}_disabled`)) return;
-        GameLoopEvents.emit("gameOverDetected", String(this.info.id), () =>
-          msg.respond({ message: "/game@TrueMafiaBot" }),
-        );
-      }
-
-      if (
-        msg.text.includes("Registration") ||
-        msg.text.includes("Pendaftaran")
-      ) {
-        GameLoopEvents.emit("registrationDetected");
       }
 
       const match = msg.text.match(/Total:\s*(\d+)/);
