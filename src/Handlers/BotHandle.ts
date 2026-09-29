@@ -72,9 +72,22 @@ export class BotHandle {
 
     var pola = /^\/getrole$/i;
     if (pola.exec(this.ctx.message?.text!)) {
+      if (!Cache.get(`groupName`))
+        return this.ctx.reply(
+          `⚠️ <b>Perhatian!</b>\nBelum ada grup yang ditentukan.`,
+          { parse_mode: "HTML" },
+        );
+      if (!Cache.get(`begins`))
+        return this.ctx.reply(
+          `⚠️ <b>Perhatian!</b>\nPermainan belum dimulai.`,
+          { parse_mode: "HTML" },
+        );
       const getRole = Cache.get(`role`);
       if (!getRole)
-        return this.ctx.reply(`⚠️ <b>Perhatian!</b>\nPermainan belum dimulai.`);
+        return this.ctx.reply(
+          `⚠️ <b>Perhatian!</b>\nUserbot belum mendapatkan peran.`,
+          { parse_mode: "HTML" },
+        );
       this.ctx.reply(`⏳ Memproses...`).then((message_result) => {
         const parsed = Object.fromEntries(
           String(getRole)
@@ -163,7 +176,7 @@ export class BotHandle {
     if (pola.exec(this.ctx.message?.text!)) {
       if (Cache.get(`join`))
         return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nHanya 1 grup setiap saat - ${Cache.get(`group_name`)}.`,
+          `⚠️ <b>Perhatian!</b>\nHanya 1 grup setiap saat - ${Cache.get(`groupName`)}.`,
           { parse_mode: "HTML" },
         );
       this.ctx.reply(`⏳ Memproses...`).then((result) => {
@@ -194,9 +207,14 @@ export class BotHandle {
 
     var pola = /^\/smode$/i;
     if (pola.exec(this.ctx.message?.text!)) {
-      if (!Cache.get(`group_name`))
+      if (!Cache.get(`groupName`))
         return this.ctx.reply(
           `⚠️ <b>Perhatian!</b>\nBelum ada grup yang ditentukan.`,
+          { parse_mode: "HTML" },
+        );
+      if (!Cache.get(`begins`))
+        return this.ctx.reply(
+          `⚠️ <b>Perhatian!</b>\nPermainan belum dimulai.`,
           { parse_mode: "HTML" },
         );
       this.ctx.reply(`⏳ Memproses...`).then((result) => {
@@ -659,12 +677,12 @@ export class BotHandle {
         this.ctx.editMessageText(`⏳ Memproses...`).catch(() => {});
         Cache.set(`join`, "direct");
         const target = mc[1];
-        Cache.set(`group_target`, target);
+        Cache.set(`groupTarget`, target);
         Database.orm.public.Group.where({ GroupId: target })
           .select("GroupName")
           .first()
           .then((db_result) => {
-            Cache.set(`group_name`, db_result?.GroupName);
+            Cache.set(`groupName`, db_result?.GroupName);
             var pesan = `✅ <b>Metode Diatur!</b>`;
             pesan += `\nUserbot akan bergabung dalam permainan ketika pendaftaran dibuka di - ${db_result?.GroupName}`;
             let keyb: any[] = [];
@@ -679,7 +697,7 @@ export class BotHandle {
       if (method === "send") {
         this.ctx.editMessageText(`⏳ Memproses...`);
         const target = mc[1];
-        Cache.set(`group_target`, target);
+        Cache.set(`groupTarget`, target);
         Cache.set(`join`, "next");
 
         Database.orm.public.DisabledUserBot.select("UserId")
@@ -693,7 +711,7 @@ export class BotHandle {
               .select("GroupName")
               .first()
               .then((db_result) => {
-                Cache.set(`group_name`, db_result?.GroupName);
+                Cache.set(`groupName`, db_result?.GroupName);
 
                 const processNext = (i: number): void => {
                   if (i >= this.clients.length) {
@@ -1132,7 +1150,7 @@ export class BotHandle {
         this.ctx.deleteMessage().catch(() => {});
         Utils.sendMessageToAdmin(
           this.bot,
-          `✅ <b>Suck Mode Diaktifkan!</b>\nSuck mode telah diaktifkan di ${Cache.get(`group_name`)}, userbot akan bertahan hingga hari ke-${Cache.get(`afkmodeDur`)}, Anda akan diberitahu tentang peran semua userbot.`,
+          `✅ <b>Suck Mode Diaktifkan!</b>\nSuck mode telah diaktifkan di ${Cache.get(`groupName`)}, userbot akan bertahan hingga hari ke-${Cache.get(`afkmodeDur`)}, Anda akan diberitahu tentang peran semua userbot.`,
         );
         return;
       }

@@ -4,6 +4,7 @@ import { Cache } from "../Utils/Caches";
 import { Utils } from "../Utils/Utils";
 import type { Bot } from "grammy";
 import { UserBots } from "../Utils/UserBots";
+import { GameLoopEvents } from "../Utils/GameLoop";
 
 export class UserBotHandle {
   event: NewMessageEvent;
@@ -147,9 +148,23 @@ export class UserBotHandle {
     }
 
     if (
-      String(msg.chatId) === String(Cache.get(`group_target`)) &&
+      String(msg.chatId) === String(Cache.get(`groupTarget`)) &&
       Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
     ) {
+      if (
+        msg.text.includes("Game over") ||
+        msg.text.includes("The game is over")
+      ) {
+        if (Cache.get(`userbot_${String(this.info.id)}_disabled`)) return;
+        GameLoopEvents.emit("gameOverDetected", String(this.info.id), () =>
+          msg.respond({ message: "/game@TrueMafiaBot" }),
+        );
+      }
+
+      if (msg.text.includes("Registration")) {
+        GameLoopEvents.emit("registrationDetected");
+      }
+
       const match = msg.text.match(/Total:\s*(\d+)/);
       const total = match ? Number(match[1]) : 0;
       if (!Cache.get(`total`)) {
@@ -173,27 +188,6 @@ export class UserBotHandle {
           );
         }
       }
-      if (
-        msg.text.includes("Game over") ||
-        msg.text.includes("The game is over")
-      ) {
-        setTimeout(
-          () => {
-            if (Cache.get(`hasSentGame`) || Cache.get(`sendingGame`)) return;
-            Cache.set(`sendingGame`, true, 30);
-            msg
-              .respond({ message: "/game@TrueMafiaBot" })
-              .then(() => {
-                Cache.set(`hasSentGame`, true);
-              })
-              .catch(() => {})
-              .finally(() => {
-                Cache.del(`sendingGame`);
-              });
-          },
-          3000,
-        );
-      }
 
       if (msg.text.includes("The game begins")) {
         if (!Cache.get(`begins`)) {
@@ -216,47 +210,12 @@ export class UserBotHandle {
       }
 
       if (msg.text.includes("Game canceled")) {
-        Cache.del(`role`);
-        if (!Cache.get(`continu`)) {
-          UserBots.clearSmode();
-        } else {
-          if (!Cache.get(`join`)) {
-            Cache.set(`join`, "direct");
-          }
-        }
-        Cache.del(`hasSent`);
-        Cache.del(`target`);
-        Cache.del(`roleSepaDon`);
-        Cache.del(`begins`);
-        Cache.del(`hasSentWarnDoc`);
-        Cache.del(`hasSentWarnKill`);
-        Cache.del(`doctor`);
-        Cache.del(`dayNow`);
-        const getUbot = String(process.env["USERBOT"]).split(",");
-        getUbot.map((id: string) => {
-          Cache.del(`hasSentKill_${id}`);
-        });
+        UserBots.clearAll("1");
       }
 
       if (msg.text.includes("#ADVERTISING") || msg.text.includes("Game over")) {
         if (Cache.get(`role`)) {
-          Cache.del(`role`);
-          if (!Cache.get(`continu`)) {
-            UserBots.clearSmode();
-          }
-          Cache.del(`hasSent`);
-          Cache.del(`target`);
-          Cache.del(`roleSepaDon`);
-          Cache.del(`begins`);
-          Cache.del(`hasSentWarnDoc`);
-          Cache.del(`hasSentWarnKill`);
-          Cache.del(`doctor`);
-          Cache.del(`dayNow`);
-
-          const getUbot = String(process.env["USERBOT"]).split(",");
-          getUbot.map((id: string) => {
-            Cache.del(`hasSentKill_${id}`);
-          });
+          UserBots.clearAll();
         }
       }
 

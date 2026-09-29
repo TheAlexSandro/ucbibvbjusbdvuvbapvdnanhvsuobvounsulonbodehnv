@@ -3,6 +3,12 @@ import { Cache } from "./Caches";
 import { Utils } from "./Utils";
 import type { Bot } from "grammy";
 
+let intervalId: NodeJS.Timeout | null = null;
+let attempts = 0;
+let consecutiveFailures = 0;
+const MAX_ATTEMPTS = 30;
+const MAX_CONSECUTIVE_FAILURES = 3;
+
 export class UserBots {
   private static getTarget(obj: string) {
     const parsed = Object.fromEntries(
@@ -235,5 +241,30 @@ export class UserBots {
     Cache.del(`afkmodeDur`);
     Cache.del(`continu`);
     Cache.del(`allroleAfk`);
+    Cache.del(`join`);
+  }
+
+  static clearAll(type?: string) {
+    Cache.del(`role`);
+    if (!Cache.get(`continu`)) {
+      this.clearSmode();
+    } else {
+      if (!Cache.get(`join`) && type === "1") {
+        Cache.set(`join`, "direct");
+      }
+    }
+    Cache.del(`hasSent`);
+    Cache.del(`hasSentGame`);
+    Cache.del(`target`);
+    Cache.del(`roleSepaDon`);
+    Cache.del(`begins`);
+    Cache.del(`hasSentWarnDoc`);
+    Cache.del(`hasSentWarnKill`);
+    Cache.del(`doctor`);
+    Cache.del(`dayNow`);
+    const getUbot = String(process.env["USERBOT"]).split(",");
+    getUbot.map((id: string) => {
+      Cache.del(`hasSentKill_${id}`);
+    });
   }
 }
