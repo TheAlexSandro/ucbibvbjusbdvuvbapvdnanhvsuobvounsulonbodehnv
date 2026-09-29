@@ -51,7 +51,6 @@ export class UserBots {
     client: TelegramClient,
     msg: Api.Message,
     buttons: Api.KeyboardInlineButton[],
-    bot: Bot,
   ) {
     if (!Cache.get(`begins`)) return;
     const getRoleList = String(Cache.get(`role`));
@@ -61,37 +60,8 @@ export class UserBots {
         !getRoleList.includes("maniac") ||
         !getRoleList.includes("boss lana") ||
         !getRoleList.includes("gila"))
-    ) {
-      if (
-        !(getRoleList.includes("doctor") || getRoleList.includes("dokter")) &&
-        !Cache.get("continu")
-      ) {
-        if (!Cache.get(`hasSentWarnDoc`)) {
-          Cache.set(`hasSentWarnDoc`, true);
-          this.clearSmode();
-          Utils.sendMessageToAdmin(
-            bot,
-            `⚠️ <b>Perhatian!</b>\nTidak ada userbot yang memiliki role <b>doctor</b>, smode dibatalkan.`,
-          );
-        }
-      }
-
-      if (
-        !getRoleList.includes("don") ||
-        !getRoleList.includes("maniac") ||
-        !getRoleList.includes("boss lana") ||
-        !getRoleList.includes("gila")
-      ) {
-        if (!Cache.get(`hasSentWarnKill`)) {
-          Cache.set(`hasSentWarnKill`, true);
-          Utils.sendMessageToAdmin(
-            bot,
-            `⚠️ <b>Perhatian!</b>\nTidak ada userbot yang memiliki role pembunuh, smode dijeda hingga salah satu mendapatkan peran <b>don</b>.`,
-          );
-        }
-      }
+    )
       return;
-    }
     const target = this.getTarget(getRoleList);
     if (!Cache.get(`target`)) {
       Cache.set(`target`, target[0]);

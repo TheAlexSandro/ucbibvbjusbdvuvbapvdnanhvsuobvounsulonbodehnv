@@ -77,7 +77,7 @@ export class UserBotHandle {
 
         const getMode = Cache.get("mode");
         if (getMode === "afkmode") {
-          UserBots.handleAfkMode(this.client, msg, buttons, this.bot);
+          UserBots.handleAfkMode(this.client, msg, buttons);
         }
       }
 
@@ -167,6 +167,71 @@ export class UserBotHandle {
       String(msg.chatId) === String(Cache.get(`groupTarget`)) &&
       Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
     ) {
+      if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
+        const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
+
+        if (
+          (msg.text.includes("Registration") ||
+            msg.text.includes("Pendaftaran")) &&
+          ["direct", "next"].includes(String(Cache.get(`join`)))
+        ) {
+          const targetButton = buttons.find((b: any) => {
+            return (
+              (b.text?.includes("Join") || b.text?.includes("Gabung")) &&
+              b.type?.className === "InlineButtonTypeUrl" &&
+              b.type?.url
+            );
+          });
+
+          if (targetButton) {
+            const url = (targetButton as any).type.url;
+            const parsed = new URL(url);
+            const startParam = String(parsed.searchParams.get("start"));
+            UserBots.getMafiaBotEntity(
+              this.client,
+              String(this.info.id),
+              (error, result) => {
+                return this.client.invoke(
+                  new Api.messages.StartBot({
+                    bot: result,
+                    peer: result,
+                    randomId: BigInt(Math.floor(Math.random() * 1e18)) as any,
+                    startParam,
+                  }),
+                );
+              },
+            );
+          }
+          return;
+        }
+
+        if (
+          (msg.text.includes("Are you sure about lynching") ||
+            msg.text.includes("Anda yakin ingin menggantung")) &&
+          msg.text.includes(String(Cache.get(`target`))) &&
+          Cache.get(`useVote`) === "yes"
+        ) {
+          const targetButton = buttons.find((b: any) => {
+            return (
+              b.text?.includes("👎") &&
+              b.type?.className === "InlineButtonTypeCallback" &&
+              b.type?.data
+            );
+          });
+          if (targetButton) {
+            this.client
+              .invoke(
+                new Api.messages.GetBotCallbackAnswer({
+                  peer: msg.peerId,
+                  msgId: msg.id,
+                  data: (targetButton as any).type.data,
+                }),
+              )
+              .catch(() => {});
+          }
+        }
+      }
+
       if (
         msg.text.includes("Game over") ||
         msg.text.includes("The game is over") ||
@@ -250,70 +315,6 @@ export class UserBotHandle {
       ) {
         if (Cache.get(`role`)) {
           UserBots.clearAll();
-        }
-      }
-
-      if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
-        const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
-
-        if (
-          (msg.text.includes("Registration") ||
-            msg.text.includes("Pendaftaran")) &&
-          ["direct", "next"].includes(String(Cache.get(`join`)))
-        ) {
-          const targetButton = buttons.find((b: any) => {
-            return (
-              (b.text?.includes("Join") || b.text?.includes("Gabung")) &&
-              b.type?.className === "InlineButtonTypeUrl" &&
-              b.type?.url
-            );
-          });
-
-          if (targetButton) {
-            const url = (targetButton as any).type.url;
-            const parsed = new URL(url);
-            const startParam = String(parsed.searchParams.get("start"));
-            UserBots.getMafiaBotEntity(
-              this.client,
-              String(this.info.id),
-              (error, result) => {
-                return this.client.invoke(
-                  new Api.messages.StartBot({
-                    bot: result,
-                    peer: result,
-                    randomId: BigInt(Math.floor(Math.random() * 1e18)) as any,
-                    startParam,
-                  }),
-                );
-              },
-            );
-          }
-        }
-
-        if (
-          (msg.text.includes("Are you sure about lynching") ||
-            msg.text.includes("Anda yakin ingin menggantung")) &&
-          msg.text.includes(String(Cache.get(`target`))) &&
-          Cache.get(`useVote`) === "yes"
-        ) {
-          const targetButton = buttons.find((b: any) => {
-            return (
-              b.text?.includes("👎") &&
-              b.type?.className === "InlineButtonTypeCallback" &&
-              b.type?.data
-            );
-          });
-          if (targetButton) {
-            this.client
-              .invoke(
-                new Api.messages.GetBotCallbackAnswer({
-                  peer: msg.peerId,
-                  msgId: msg.id,
-                  data: (targetButton as any).type.data,
-                }),
-              )
-              .catch(() => {});
-          }
         }
       }
     }
