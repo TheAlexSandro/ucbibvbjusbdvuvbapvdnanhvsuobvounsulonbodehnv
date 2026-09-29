@@ -95,7 +95,8 @@ export class UserBotHandle {
         msg.text.includes("You're") ||
         msg.text.includes("You are") ||
         msg.text.includes("is a new") ||
-        msg.text.includes("Anda adalah")
+        msg.text.includes("Anda adalah") ||
+        msg.text.includes("Anda sekarang")
       ) {
         if (
           msg.text.includes("you're already in the game") ||
@@ -120,7 +121,7 @@ export class UserBotHandle {
 
         Utils.sendMessageToAdmin(
           this.bot,
-          `<a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the new") ? "sekarang adalah" : "-"} ${match?.[0]}`,
+          `<a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the new") || msg.text.includes("baru") || msg.text.includes("Anda sekarang") ? "sekarang adalah" : "-"} ${match?.[0]}`,
         );
         UserBots.updateRoleCache(String(fullName), role);
       }
