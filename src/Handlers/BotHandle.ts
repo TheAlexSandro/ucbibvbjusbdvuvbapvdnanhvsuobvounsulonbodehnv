@@ -46,7 +46,7 @@ export class BotHandle {
       pesan += `\n\n🕹 <b>Perintah:</b>`;
       pesan += `\n• /gc - tambahkan grup atau kelola grup yang sudah ada.`;
       pesan += `\n• /getrole - dapatkan informasi tentang peran userbot.`;
-      pesan += `\n• /next - gunakan perintah ini untuk memicu semua userbot mengirim <code>/next</code> ke grup.`;
+      pesan += `\n• /next - gunakan perintah ini agar userbot masuk dalam permainan.`;
       pesan += `\n• /smode - (suck mode) gunakan perintah ini untuk membuat userbot bertahan hingga hari yang ditentukan, <b>salah satu userbot harus memiliki peran dokter</b>.`;
       pesan += `\n• /ubot - kelola userbot mana yang akan digunakan.`;
       pesan += `\n• /reset - (berbahaya!) gunakan perintah ini untuk menghapus semua cache.`;
@@ -176,7 +176,7 @@ export class BotHandle {
     if (pola.exec(this.ctx.message?.text!)) {
       if (Cache.get(`join`))
         return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nHanya 1 grup setiap saat - ${Cache.get(`groupName`)}.`,
+          `⚠️ <b>Perhatian!</b>\nHanya 1 grup setiap saat - ${Cache.get(`groupName`)}.\n${Cache.get(`continu`) ? "🔁 Continuous sedang aktif." : ""}`,
           { parse_mode: "HTML" },
         );
       this.ctx.reply(`⏳ Memproses...`).then((result) => {
@@ -194,7 +194,7 @@ export class BotHandle {
               ),
             ]);
           }
-          keyb.push([btn.text(`🔄 Refresh`, `next_refresh`)]);
+          keyb.push([btn.text(`🔄 Refresh`, `next_refresh_none`)]);
 
           this.bot.api.editMessageText(chat?.id!, result.message_id, pesan, {
             parse_mode: "HTML",
@@ -220,7 +220,7 @@ export class BotHandle {
       this.ctx.reply(`⏳ Memproses...`).then((result) => {
         if (Cache.get("mode") === "afkmode") {
           var pesan = `🧨 <b>Suck Mode</b>`;
-          pesan += `\nSuck mode sedang aktif, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
+          pesan += `\nSuck mode sedang aktif di ${Cache.get(`groupName`)}, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
           pesan += `\n\n• 🎎 Afk Semua - membuat semua userbot afk hingga permainan berakhir.`;
           pesan += `\n• 🔁 Continuous - aktifkan fitur ini untuk membuat smode berjalan selama mungkin tanpa bergantung pada jumlah hari yang ditentukan.`;
 
@@ -642,7 +642,7 @@ export class BotHandle {
               ),
             ]);
           }
-          keyb.push([btn.text(`🔄 Refresh`, `next_refresh`)]);
+          keyb.push([btn.text(`🔄 Refresh`, `next_refresh_none`)]);
 
           this.ctx.editMessageText(pesan, {
             parse_mode: "HTML",
@@ -684,7 +684,7 @@ export class BotHandle {
           .then((db_result) => {
             Cache.set(`groupName`, db_result?.GroupName);
             var pesan = `✅ <b>Metode Diatur!</b>`;
-            pesan += `\nUserbot akan bergabung dalam permainan ketika pendaftaran dibuka di - ${db_result?.GroupName}`;
+            pesan += `\nUserbot akan bergabung dalam permainan ketika pendaftaran dibuka di ${db_result?.GroupName}`;
             let keyb: any[] = [];
             keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
 
@@ -832,7 +832,7 @@ export class BotHandle {
         if (String(Cache.get(`mode`)) !== "afkmode")
           return this.ctx.deleteMessage();
         var pesan = `🧨 <b>Suck Mode</b>`;
-        pesan += `\nSuck mode sedang aktif, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
+        pesan += `\nSuck mode sedang aktif di ${Cache.get(`groupName`)}, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
         pesan += `\n\n• 🎎 Afk Semua - membuat semua userbot afk hingga permainan berakhir.`;
         pesan += `\n• 🔁 Continuous - aktifkan fitur ini untuk membuat smode berjalan selama mungkin tanpa bergantung pada jumlah hari yang ditentukan.`;
 
