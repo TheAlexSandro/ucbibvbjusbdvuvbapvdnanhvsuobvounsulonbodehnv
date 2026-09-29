@@ -283,26 +283,4 @@ export class UserBots {
       Cache.del(`hasSentKill_${id}`);
     });
   }
-
-  static setMafiaBotEntity(client: TelegramClient, userId: string) {
-    client.getEntity(String(process.env["TRUE_MAFIA"])).then((entity) => {
-      Cache.set(`mafiaEntity_${userId}`, entity);
-    });
-  }
-
-  static getMafiaBotEntity(
-    client: TelegramClient,
-    userId: string,
-    callback: Callback<Entity>,
-  ) {
-    const getEnt = Cache.get(`mafiaEntity_${userId}`);
-    if (!getEnt) {
-      client.getEntity(String(process.env["TRUE_MAFIA"])).then((entity) => {
-        Cache.set(`mafiaEntity_${userId}`, entity);
-        return callback(null, entity);
-      });
-    } else {
-      return callback(null, getEnt as Entity);
-    }
-  }
 }

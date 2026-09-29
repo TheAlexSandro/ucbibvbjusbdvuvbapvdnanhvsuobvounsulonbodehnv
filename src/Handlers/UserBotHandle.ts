@@ -32,7 +32,6 @@ export class UserBotHandle {
     if (isDisabled) return;
 
     const msg = this.event.message;
-
     if (msg.out) return;
     if (
       msg.isPrivate &&
@@ -205,20 +204,18 @@ export class UserBotHandle {
             const url = (targetButton as any).type.url;
             const parsed = new URL(url);
             const startParam = String(parsed.searchParams.get("start"));
-            UserBots.getMafiaBotEntity(
-              this.client,
-              String(this.info.id),
-              (error, result) => {
+            this.client
+              .getEntity(String(process.env["TRUE_MAFIA"]))
+              .then((entity) => {
                 return this.client.invoke(
                   new Api.messages.StartBot({
-                    bot: result,
-                    peer: result,
+                    bot: entity,
+                    peer: entity,
                     randomId: BigInt(Math.floor(Math.random() * 1e18)) as any,
                     startParam,
                   }),
                 );
-              },
-            );
+              });
           }
           return;
         }
