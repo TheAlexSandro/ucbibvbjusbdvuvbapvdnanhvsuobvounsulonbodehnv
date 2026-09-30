@@ -1,10 +1,11 @@
-import type { Bot, Context } from "grammy";
+import { Bot, Context, InputFile } from "grammy";
 import { Utils } from "../Utils/Utils";
-import { TelegramClient, Api } from "teleproto";
+import { TelegramClient } from "teleproto";
 import { markup, btn } from "../Utils/Buttons";
 import { Cache } from "../Utils/Caches";
 import { Database } from "../prisma/Database";
 import { UserBots } from "../Utils/UserBots";
+import fs from "fs/promises";
 
 const admins = String(process.env["ADMIN"]).split(",");
 export class BotHandle {
@@ -53,8 +54,29 @@ export class BotHandle {
       pesan += `\n• /smode - (suck mode) gunakan perintah ini untuk membuat userbot bertahan hingga hari yang ditentukan, <b>salah satu userbot harus memiliki peran dokter</b>.`;
       pesan += `\n• /ubot - kelola userbot mana yang akan digunakan.`;
       pesan += `\n• /reset - (berbahaya!) gunakan perintah ini untuk menghapus semua cache.`;
+      pesan += `\n• /log - cek log.`;
 
       this.ctx.reply(pesan, { parse_mode: "HTML" });
+      return;
+    }
+
+    var pola = /^\/log$/i;
+    if (pola.exec(this.ctx.message?.text!)) {
+      const getLog = Cache.get(`log`);
+      if (String(getLog).length > 4000) {
+        fs.writeFile("log.txt", String(getLog), "utf-8");
+        this.bot.api.sendDocument(chat?.id!, new InputFile("log.txt"));
+        return;
+      }
+      var pesan = `📝 <b>Log</b>`;
+      pesan += `\n${getLog ? `<code>${getLog}</code>` : "Belum ada apapun."}`;
+      let keyb = [];
+      keyb[0] = [btn.text(`🗑 Purge`, `log_purge`)];
+
+      this.ctx.reply(pesan, {
+        parse_mode: "HTML",
+        reply_markup: markup.inlineKeyboard(keyb),
+      });
       return;
     }
 
@@ -410,6 +432,37 @@ export class BotHandle {
       return;
     }
 
+    var pola = /^log_(.*)$/i;
+    if ((mc = pola.exec(cbData))) {
+      const isHAdmin = String(process.env["H_ADMIN"])
+        .split(",")
+        .find((id: string) => id === String(chat?.id));
+      const type = mc[1];
+
+      if (!isHAdmin)
+        return this.ctx.answerCallbackQuery({
+          text: "⚠️ Akses hanya untuk administrator tingkat tinggi.",
+          show_alert: true,
+        });
+
+      if (type === "purge") {
+        Cache.del(`log`);
+        var pesan = `📝 <b>Log</b>`;
+        pesan += `\nBelum ada apapun.`;
+        let keyb = [];
+        keyb[0] = [btn.text(`🗑 Purge`, `log_purge`)];
+
+        this.ctx
+          .editMessageText(pesan, {
+            parse_mode: "HTML",
+            reply_markup: markup.inlineKeyboard(keyb),
+          })
+          .catch(() => {});
+        this.ctx.answerCallbackQuery();
+        return;
+      }
+    }
+
     var pola = /^cancel_$/i;
     if (pola.exec(cbData)) {
       Cache.del(`useVote`);
@@ -686,18 +739,25 @@ export class BotHandle {
         Cache.set(`join`, "direct");
         const target = mc[1];
         Cache.set(`groupTarget`, target);
-        Database.orm.public.Group.where({ GroupId: target })
-          .select("GroupName")
-          .first()
+        Database.orm.public.DisabledUserBot.select("UserId")
+          .all()
           .then((db_result) => {
-            Cache.set(`groupName`, db_result?.GroupName);
-            var pesan = `✅ <b>Metode Diatur!</b>`;
-            pesan += `\nUserbot akan bergabung dalam permainan ketika pendaftaran dibuka di ${db_result?.GroupName}`;
-            let keyb: any[] = [];
-            keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
+            db_result.map((id) => {
+              Cache.set(`userbot_${id}_disabled`, true);
+            });
+            Database.orm.public.Group.where({ GroupId: target })
+              .select("GroupName")
+              .first()
+              .then((db_result) => {
+                Cache.set(`groupName`, db_result?.GroupName);
+                var pesan = `✅ <b>Metode Diatur!</b>`;
+                pesan += `\nUserbot akan bergabung dalam permainan ketika pendaftaran dibuka di ${db_result?.GroupName}`;
+                let keyb: any[] = [];
+                keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
 
-            this.ctx.deleteMessage();
-            Utils.sendMessageToAdmin(this.bot, pesan, keyb);
+                this.ctx.deleteMessage();
+                Utils.sendMessageToAdmin(this.bot, pesan, keyb);
+              });
           });
         return;
       }

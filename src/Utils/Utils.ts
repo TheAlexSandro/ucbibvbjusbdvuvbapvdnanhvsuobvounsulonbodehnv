@@ -83,4 +83,12 @@ export class Utils {
     }
     return players;
   }
+
+  static writeLog(log: string) {
+    if (!Cache.get(`log`)) {
+      Cache.set(`log`, log);
+    } else {
+      Cache.set(`log`, String(Cache.get(`log`)) + log);
+    }
+  }
 }

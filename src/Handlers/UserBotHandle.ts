@@ -169,10 +169,6 @@ export class UserBotHandle {
       String(msg.chatId) === String(Cache.get(`groupTarget`)) &&
       Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
     ) {
-      console.log(
-        `[${msg.chatId}] server: ${new Date(serverTime).toISOString()}, diterima: ${new Date(receivedTime).toISOString()}, delay: ${delay}ms`,
-      );
-
       if (
         msg.text.includes("Game over") ||
         msg.text.includes("The game is over") ||
@@ -200,6 +196,10 @@ export class UserBotHandle {
             msg.text.includes("Pendaftaran")) &&
           ["direct", "next"].includes(String(Cache.get(`join`)))
         ) {
+          Utils.writeLog(
+            `[${msg.chatId}] server: ${new Date(serverTime).toISOString()}, diterima: ${new Date(receivedTime).toISOString()}, delay: ${delay}ms, user: ${this.info.firstName}\n`,
+          );
+
           const targetButton = buttons.find((b: any) => {
             return (
               (b.text?.includes("Join") || b.text?.includes("Gabung")) &&
@@ -215,14 +215,27 @@ export class UserBotHandle {
             this.client
               .getEntity(String(process.env["TRUE_MAFIA"]))
               .then((entity) => {
-                return this.client.invoke(
-                  new Api.messages.StartBot({
-                    bot: entity,
-                    peer: entity,
-                    randomId: BigInt(Math.floor(Math.random() * 1e18)) as any,
-                    startParam,
-                  }),
-                );
+                const clickStart = Date.now();
+
+                return this.client
+                  .invoke(
+                    new Api.messages.StartBot({
+                      bot: entity,
+                      peer: entity,
+                      randomId: BigInt(Math.floor(Math.random() * 1e18)) as any,
+                      startParam,
+                    }),
+                  )
+                  .then(() => {
+                    Utils.writeLog(
+                      `[CLICK] tombol oleh ${this.info.firstName} butuh ${Date.now() - clickStart}ms\n`,
+                    );
+                  })
+                  .catch(() => {
+                    Utils.writeLog(
+                      `[CLICK FAIL] tombol oleh ${this.info.firstName} setelah ${Date.now() - clickStart}ms\n`,
+                    );
+                  });
               });
           }
           return;
