@@ -313,9 +313,6 @@ export class UserBotHandle {
           Cache.set(`begins`, true);
           Cache.del(`hasSentGame`);
         }
-        if (Cache.get(`join`) && !Cache.get(`continu`)) {
-          Cache.del(`join`);
-        }
         Cache.set(`roleSepaDon`, true);
         Cache.del(`hasSent`);
         Cache.del(`hasSentWarnKill`);
