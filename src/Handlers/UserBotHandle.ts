@@ -116,14 +116,14 @@ export class UserBotHandle {
           Cache.set(`doctor`, fullName);
         }
         if (
-          (msg.text.includes("is a new") || msg.text.includes("baru")) &&
+          (msg.text.includes("is a new") || msg.text.includes("Lana baru")) &&
           !msg.text.includes(String(fullName))
         )
           return;
 
         Utils.sendMessageToAdmin(
           this.bot,
-          `<a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the new") || msg.text.includes("baru") || msg.text.includes("Anda sekarang") ? "sekarang adalah" : "-"} ${match?.[0]}`,
+          `<a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the new") || msg.text.includes("baru") ? "sekarang adalah" : "-"} ${match?.[0]}`,
         );
         UserBots.updateRoleCache(String(fullName), role);
       }
@@ -309,6 +309,13 @@ export class UserBotHandle {
         msg.text.includes("The Night Falls") ||
         msg.text.includes("Malam yang mengerikan")
       ) {
+        if (!Cache.get(`begins`)) {
+          Cache.set(`begins`, true);
+          Cache.del(`hasSentGame`);
+        }
+        if (Cache.get(`join`) && !Cache.get(`continu`)) {
+          Cache.del(`join`);
+        }
         Cache.set(`roleSepaDon`, true);
         Cache.del(`hasSent`);
         Cache.del(`hasSentWarnKill`);

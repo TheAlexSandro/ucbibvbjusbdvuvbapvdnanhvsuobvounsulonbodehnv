@@ -115,15 +115,17 @@ export class UserBots {
       });
 
       if (targetButton) {
-        client
-          .invoke(
-            new Api.messages.GetBotCallbackAnswer({
-              peer: msg.peerId,
-              msgId: msg.id,
-              data: (targetButton as any).type.data,
-            }),
-          )
-          .catch(() => {});
+        setTimeout(() => {
+          client
+            .invoke(
+              new Api.messages.GetBotCallbackAnswer({
+                peer: msg.peerId,
+                msgId: msg.id,
+                data: (targetButton as any).type.data,
+              }),
+            )
+            .catch(() => {});
+        }, 700);
       } else {
         if (
           (msg.text.includes("Who are you gonna") ||
@@ -148,15 +150,17 @@ export class UserBots {
         const targetButton =
           callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
 
-        client
-          .invoke(
-            new Api.messages.GetBotCallbackAnswer({
-              peer: msg.peerId,
-              msgId: msg.id,
-              data: (targetButton as any).type.data,
-            }),
-          )
-          .catch(() => {});
+        setTimeout(() => {
+          client
+            .invoke(
+              new Api.messages.GetBotCallbackAnswer({
+                peer: msg.peerId,
+                msgId: msg.id,
+                data: (targetButton as any).type.data,
+              }),
+            )
+            .catch(() => {});
+        }, 700);
       }
     }
 
@@ -174,15 +178,17 @@ export class UserBots {
       });
 
       if (targetButton) {
-        client
-          .invoke(
-            new Api.messages.GetBotCallbackAnswer({
-              peer: msg.peerId,
-              msgId: msg.id,
-              data: (targetButton as any).type.data,
-            }),
-          )
-          .catch(() => {});
+        setTimeout(() => {
+          client
+            .invoke(
+              new Api.messages.GetBotCallbackAnswer({
+                peer: msg.peerId,
+                msgId: msg.id,
+                data: (targetButton as any).type.data,
+              }),
+            )
+            .catch(() => {});
+        }, 700);
       }
     }
   }
