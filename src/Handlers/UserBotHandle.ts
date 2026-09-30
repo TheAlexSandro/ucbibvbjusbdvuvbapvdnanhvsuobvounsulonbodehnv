@@ -32,6 +32,10 @@ export class UserBotHandle {
     if (isDisabled) return;
 
     const msg = this.event.message;
+    const serverTime = msg.date * 1000;
+    const receivedTime = Date.now();
+    const delay = receivedTime - serverTime;
+
     if (msg.out) return;
     if (
       msg.isPrivate &&
@@ -165,6 +169,10 @@ export class UserBotHandle {
       String(msg.chatId) === String(Cache.get(`groupTarget`)) &&
       Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
     ) {
+      console.log(
+        `[${msg.chatId}] server: ${new Date(serverTime).toISOString()}, diterima: ${new Date(receivedTime).toISOString()}, delay: ${delay}ms`,
+      );
+
       if (
         msg.text.includes("Game over") ||
         msg.text.includes("The game is over") ||

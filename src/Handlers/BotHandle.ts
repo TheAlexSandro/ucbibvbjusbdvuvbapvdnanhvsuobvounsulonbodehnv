@@ -45,8 +45,7 @@ export class BotHandle {
       );
     var pola = /^\/start$/i;
     if (pola.exec(this.ctx.message?.text!)) {
-      var pesan = `👋 Halo ${Utils.getName(this.ctx)}, selamat datang di controller!`;
-      pesan += `\nKelola userbot Anda di sini.`;
+      var pesan = `👋 Halo ${Utils.getName(this.ctx)}, selamat datang di controller! Kelola userbot Anda di sini.`;
       pesan += `\n\n🕹 <b>Perintah:</b>`;
       pesan += `\n• /gc - tambahkan grup atau kelola grup yang sudah ada.`;
       pesan += `\n• /getrole - dapatkan informasi tentang peran userbot.`;
@@ -178,6 +177,11 @@ export class BotHandle {
 
     var pola = /^\/next$/i;
     if (pola.exec(this.ctx.message?.text!)) {
+      if (Cache.get(`mode`))
+        return this.ctx.reply(
+          `⚠️ <b>Perhatian!</b>\nSuck mode harus dihentikan terlebih dahulu.`,
+          { parse_mode: "HTML" },
+        );
       if (Cache.get(`join`))
         return this.ctx.reply(
           `⚠️ <b>Perhatian!</b>\nHanya 1 grup setiap saat - ${Cache.get(`groupName`)}.\n${Cache.get(`continu`) ? "🔁 Continuous sedang aktif." : ""}`,
