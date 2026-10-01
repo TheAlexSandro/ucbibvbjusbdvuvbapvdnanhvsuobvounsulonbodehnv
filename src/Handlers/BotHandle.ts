@@ -242,11 +242,6 @@ export class BotHandle {
           `⚠️ <b>Perhatian!</b>\nBelum ada grup yang ditentukan.`,
           { parse_mode: "HTML" },
         );
-      if (!Cache.get(`begins`))
-        return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nPermainan belum dimulai.`,
-          { parse_mode: "HTML" },
-        );
       this.ctx.reply(`⏳ Memproses...`).then((result) => {
         if (Cache.get("mode") === "afkmode") {
           var pesan = `🧨 <b>Suck Mode</b>`;
