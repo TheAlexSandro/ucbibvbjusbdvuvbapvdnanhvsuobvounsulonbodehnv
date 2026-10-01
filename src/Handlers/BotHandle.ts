@@ -63,15 +63,17 @@ export class BotHandle {
     var pola = /^\/log$/i;
     if (pola.exec(this.ctx.message?.text!)) {
       const getLog = Cache.get(`log`);
+      let keyb = [];
+      keyb[0] = [btn.text(`🗑 Purge`, `log_purge`)];
       if (String(getLog).length > 4000) {
         fs.writeFile("log.txt", String(getLog), "utf-8");
-        this.bot.api.sendDocument(chat?.id!, new InputFile("log.txt"));
+        this.bot.api.sendDocument(chat?.id!, new InputFile("log.txt"), {
+          reply_markup: markup.inlineKeyboard(keyb),
+        });
         return;
       }
       var pesan = `📝 <b>Log</b>`;
       pesan += `\n${getLog ? `<code>${getLog}</code>` : "Belum ada apapun."}`;
-      let keyb = [];
-      keyb[0] = [btn.text(`🗑 Purge`, `log_purge`)];
 
       this.ctx.reply(pesan, {
         parse_mode: "HTML",
@@ -447,12 +449,22 @@ export class BotHandle {
         let keyb = [];
         keyb[0] = [btn.text(`🗑 Purge`, `log_purge`)];
 
-        this.ctx
-          .editMessageText(pesan, {
-            parse_mode: "HTML",
-            reply_markup: markup.inlineKeyboard(keyb),
-          })
-          .catch(() => {});
+        if (String(Cache.get(`log`)).length > 4000) {
+          this.ctx.deleteMessage().catch(() => {});
+          this.ctx
+            .reply(pesan, {
+              parse_mode: "HTML",
+              reply_markup: markup.inlineKeyboard(keyb),
+            })
+            .catch(() => {});
+        } else {
+          this.ctx
+            .editMessageText(pesan, {
+              parse_mode: "HTML",
+              reply_markup: markup.inlineKeyboard(keyb),
+            })
+            .catch(() => {});
+        }
         this.ctx.answerCallbackQuery();
         return;
       }
