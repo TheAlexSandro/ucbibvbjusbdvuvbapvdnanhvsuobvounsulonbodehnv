@@ -94,7 +94,10 @@ bot.on("callback_query", (ctx: NonNullable<Context>) => {
   app.get("/ping", (req, res) => {
     return res.json({ ok: true });
   });
-  app.listen(3000, () => {
+  app.get("/", (req, res) => {
+    return res.json({ ok: true });
+  });
+  app.listen(3000, "0.0.0.0", () => {
     console.log("ALL SYSTEM CONNECTED.");
   });
 })();
