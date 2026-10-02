@@ -79,7 +79,7 @@ export class UserBotHandle {
 
         const getMode = Cache.get("mode");
         if (getMode === "afkmode") {
-          UserBots.handleAfkMode(this.client, msg, buttons, this.bot);
+          UserBots.handleAfkMode(this.client, msg, buttons);
         }
       }
 

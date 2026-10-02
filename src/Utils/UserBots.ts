@@ -72,7 +72,6 @@ export class UserBots {
     client: TelegramClient,
     msg: Api.Message,
     buttons: Api.KeyboardInlineButton[],
-    bot: Bot,
   ) {
     if (!Cache.get(`begins`)) return;
     const getRoleList = String(Cache.get(`role`));
@@ -106,7 +105,7 @@ export class UserBots {
           b.type?.data
         );
       });
-      if (btn) this.clickButton(client, msg, btn);
+      this.clickButton(client, msg, btn);
     }
 
     // --- DOCTOR & LAWYER ---
