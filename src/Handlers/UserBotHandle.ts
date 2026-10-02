@@ -361,9 +361,9 @@ export class UserBotHandle {
           callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
 
         if (
-          msg.text.includes("Who will you check") ||
-          (msg.text.includes("Siapa yang akan Anda periksa") &&
-            Cache.get(`afkmodeDet`))
+          (msg.text.includes("Who will you check") ||
+            msg.text.includes("Siapa yang akan Anda periksa")) &&
+          Cache.get(`afkmodeDet`)
         ) {
           UserBots.clickButton(this.client, msg, targetButton);
         }

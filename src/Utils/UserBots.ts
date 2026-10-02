@@ -229,13 +229,11 @@ export class UserBots {
         msg.text.includes("Siapa yang akan mendapatkan hadiah")) &&
       Cache.get(`afkmodeSanta`)
     ) {
-      const btn = buttons.find((b: any) => {
-        return (
-          b.text?.includes(target) &&
-          b.type?.className === "InlineButtonTypeCallback" &&
-          b.type?.data
-        );
+      const btnList = buttons.filter((b: any) => {
+        return b.type?.className === "InlineButtonTypeCallback" && b.type?.data;
       });
+      const btn = btnList[Math.floor(Math.random() * btnList.length)];
+
       if (btn) this.clickButton(client, msg, btn);
     }
 
