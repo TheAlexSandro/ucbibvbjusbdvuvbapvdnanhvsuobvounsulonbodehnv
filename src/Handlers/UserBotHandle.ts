@@ -79,7 +79,7 @@ export class UserBotHandle {
 
         const getMode = Cache.get("mode");
         if (getMode === "afkmode") {
-          UserBots.handleAfkMode(this.client, msg, buttons);
+          UserBots.handleAfkMode(this.client, msg, buttons, this.bot);
         }
       }
 
@@ -258,15 +258,7 @@ export class UserBotHandle {
             );
           });
           if (targetButton) {
-            this.client
-              .invoke(
-                new Api.messages.GetBotCallbackAnswer({
-                  peer: msg.peerId,
-                  msgId: msg.id,
-                  data: (targetButton as any).type.data,
-                }),
-              )
-              .catch(() => {});
+            UserBots.clickButton(this.client, msg, targetButton);
           }
         }
       }
@@ -369,28 +361,15 @@ export class UserBotHandle {
           callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
 
         if (
-          (msg.text.includes("Who will you") ||
-            msg.text.includes("subject") ||
-            msg.text.includes("Siapa yang") ||
-            msg.text.includes("subjek")) &&
-          targetButton
+          msg.text.includes("Who will you check") ||
+          (msg.text.includes("Siapa yang akan Anda periksa") &&
+            Cache.get(`afkmodeDet`))
         ) {
-          if (
-            (msg.text.includes("Who will you") ||
-              msg.text.includes("Siapa yang akan Anda")) &&
-            !Cache.get(`afkmodeDet`)
-          )
-            return;
+          UserBots.clickButton(this.client, msg, targetButton);
+        }
 
-          this.client
-            .invoke(
-              new Api.messages.GetBotCallbackAnswer({
-                peer: msg.peerId,
-                msgId: msg.id,
-                data: (targetButton as any).type.data,
-              }),
-            )
-            .catch(() => {});
+        if (msg.text.includes("subject") || msg.text.includes("subjek")) {
+          UserBots.clickButton(this.client, msg, targetButton);
         }
       }
     }

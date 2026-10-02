@@ -27,6 +27,7 @@ export class UserBots {
       "detective",
       "sergeant",
       "journalist",
+      "bodyguard",
       //ID
       "dokter",
       "boss lana",
@@ -39,6 +40,7 @@ export class UserBots {
       "detektif",
       "sersan",
       "wartawan",
+      "pengawal",
     ];
     const result = Object.entries(parsed)
       .filter(([, value]) => !excluded.includes(value.toLocaleLowerCase()))
@@ -47,10 +49,30 @@ export class UserBots {
     return result;
   }
 
+  static clickButton(
+    client: TelegramClient,
+    msg: Api.Message,
+    btn: any,
+    delay = 1000,
+  ) {
+    setTimeout(() => {
+      client
+        .invoke(
+          new Api.messages.GetBotCallbackAnswer({
+            peer: msg.peerId,
+            msgId: msg.id,
+            data: btn.type.data,
+          }),
+        )
+        .catch(() => {});
+    }, delay);
+  }
+
   static handleAfkMode(
     client: TelegramClient,
     msg: Api.Message,
     buttons: Api.KeyboardInlineButton[],
+    bot: Bot,
   ) {
     if (!Cache.get(`begins`)) return;
     const getRoleList = String(Cache.get(`role`));
@@ -62,134 +84,173 @@ export class UserBots {
         !getRoleList.includes("gila"))
     )
       return;
-    const target = this.getTarget(getRoleList);
+    let target;
     if (!Cache.get(`target`)) {
-      Cache.set(`target`, target[0]);
+      target = this.getTarget(getRoleList)[0];
+      Cache.set(`target`, target);
+    } else {
+      target = String(Cache.get(`target`));
     }
-
     if (Cache.get(`allroleAfk`)) return;
-    if (
-      msg.text.includes("Who will you") ||
-      msg.text.includes("Whose glass") ||
-      msg.text.includes("The Mafia is voting") ||
-      msg.text.includes("Time to seek the guilty") ||
-      msg.text.includes("Who are you") ||
-      msg.text.includes("Who's today's") ||
-      msg.text.includes("Who is getting") ||
-      msg.text.includes("Siapa yang") ||
-      msg.text.includes("Botol kaca") ||
-      msg.text.includes("Mafia memilih korban") ||
-      msg.text.includes("Saatnya mencari yang bersalah") ||
-      msg.text.includes("Tentang siapa")
-    ) {
-      if (
-        (msg.text.includes("Who are you gonna") ||
-          msg.text.includes("Siapa yang akan Anda gedor")) &&
-        !Cache.get(`afkmodeHook`)
-      )
-        return;
-      if (
-        (msg.text.includes("Time to seek the guilty") ||
-          msg.text.includes("Saatnya mencari yang bersalah")) &&
-        String(Cache.get("useVote")) === "no"
-      )
-        return;
-      if (
-        (msg.text.includes("Who will you kill") ||
-          msg.text.includes("Siapa yang akan Anda bunuh")) &&
-        !Cache.get(`afkmodeMani`)
-      )
-        return;
-      if (
-        (msg.text.includes("Who is getting the gifts") ||
-          msg.text.includes("Siapa yang akan mendapatkan hadiah")) &&
-        !Cache.get(`afkmodeSanta`)
-      )
-        return;
-      const targetButton = buttons.find((b: any) => {
-        return (
-          b.text?.includes(target[0]) &&
-          b.type?.className === "InlineButtonTypeCallback" &&
-          b.type?.data
-        );
-      });
 
-      if (targetButton) {
-        setTimeout(() => {
-          client
-            .invoke(
-              new Api.messages.GetBotCallbackAnswer({
-                peer: msg.peerId,
-                msgId: msg.id,
-                data: (targetButton as any).type.data,
-              }),
-            )
-            .catch(() => {});
-        }, 700);
-      } else {
-        if (
-          (msg.text.includes("Who are you gonna") ||
-            msg.text.includes("Siapa yang akan Anda gedor")) &&
-          !Cache.get(`afkmodeHook`)
-        )
-          return;
-        if (
-          (msg.text.includes("Who is getting the gifts") ||
-            msg.text.includes("Siapa yang akan mendapatkan hadiah")) &&
-          !Cache.get(`afkmodeSanta`)
-        )
-          return;
-
-        const callbackButtons = buttons.filter((b: any) => {
-          return (
-            !b.text?.includes(String(Cache.get(`doctor`))) &&
-            b.type?.className === "InlineButtonTypeCallback" &&
-            b.type?.data
-          );
-        });
-        const targetButton =
-          callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
-
-        setTimeout(() => {
-          client
-            .invoke(
-              new Api.messages.GetBotCallbackAnswer({
-                peer: msg.peerId,
-                msgId: msg.id,
-                data: (targetButton as any).type.data,
-              }),
-            )
-            .catch(() => {});
-        }, 700);
-      }
-    }
-
+    // --- DETECTIVE ---
     if (
       (msg.text.includes("It's time to act") ||
         msg.text.includes("Saatnya bertindak")) &&
       Cache.get(`afkmodeDet`)
     ) {
-      const targetButton = buttons.find((b: any) => {
+      const btn = buttons.find((b: any) => {
         return (
           (b.text?.includes("Check") || b.text?.includes("Memeriksa")) &&
           b.type?.className === "InlineButtonTypeCallback" &&
           b.type?.data
         );
       });
+      if (btn) this.clickButton(client, msg, btn);
+    }
 
-      if (targetButton) {
-        setTimeout(() => {
-          client
-            .invoke(
-              new Api.messages.GetBotCallbackAnswer({
-                peer: msg.peerId,
-                msgId: msg.id,
-                data: (targetButton as any).type.data,
-              }),
-            )
-            .catch(() => {});
-        }, 700);
+    // --- DOCTOR & LAWYER ---
+    if (
+      msg.text.includes("Who will you heal") ||
+      msg.text.includes("Siapa yang akan kamu sembuhkan") ||
+      msg.text.includes("Who will you protect from justice") ||
+      msg.text.includes("Siapa yang akan Anda lindungi dari keadilan")
+    ) {
+      const btn = buttons.find((b: any) => {
+        return (
+          b.text?.includes(target) &&
+          b.type?.className === "InlineButtonTypeCallback" &&
+          b.type?.data
+        );
+      });
+      if (btn) this.clickButton(client, msg, btn);
+    }
+
+    // --- HOOKER ---
+    if (
+      (msg.text.includes("Who are you gonna") ||
+        msg.text.includes("Siapa yang akan Anda gedor")) &&
+      Cache.get(`afkmodeHook`)
+    ) {
+      const btn = buttons.find((b: any) => {
+        return (
+          !b.text?.includes(String(Cache.get(`doctor`))) &&
+          b.type?.className === "InlineButtonTypeCallback" &&
+          b.type?.data
+        );
+      });
+      if (btn) this.clickButton(client, msg, btn);
+    }
+
+    // --- BODYGUARD ---
+    if (
+      msg.text.includes("Who are you taking a bullet") ||
+      msg.text.includes("Siapa yang akan Anda lindungi")
+    ) {
+      const btn = buttons.find((b: any) => {
+        return (
+          !b.text?.includes(target) &&
+          b.type?.className === "InlineButtonTypeCallback" &&
+          b.type?.data
+        );
+      });
+      if (btn) this.clickButton(client, msg, btn);
+    }
+
+    // --- LYNCH ---
+    if (
+      (msg.text.includes("Time to seek the guilty") ||
+        msg.text.includes("Saatnya mencari yang bersalah")) &&
+      String(Cache.get("useVote")) !== "no"
+    ) {
+      const btn = buttons.find((b: any) => {
+        return (
+          b.text?.includes(target) &&
+          b.type?.className === "InlineButtonTypeCallback" &&
+          b.type?.data
+        );
+      });
+      if (btn) {
+        this.clickButton(client, msg, btn);
+      } else {
+        const btn = buttons.find((b: any) => {
+          return (
+            !b.text?.includes(String(Cache.get(`doctor`))) &&
+            b.type?.className === "InlineButtonTypeCallback" &&
+            b.type?.data
+          );
+        });
+        if (btn) this.clickButton(client, msg, btn);
       }
+    }
+
+    // --- HOBO & JOURNALIST ---
+    if (
+      msg.text.includes("Whose glass") ||
+      msg.text.includes("Who's today's") ||
+      msg.text.includes("Botol kaca") ||
+      msg.text.includes("Tentang siapa")
+    ) {
+      const btnList = buttons.filter((b: any) => {
+        return b.type?.className === "InlineButtonTypeCallback" && b.type?.data;
+      });
+      const btn = btnList[Math.floor(Math.random() * btnList.length)];
+
+      if (btn) this.clickButton(client, msg, btn);
+    }
+
+    // --- MAFIA & MANIAC ---
+    if (
+      msg.text.includes("Who will you kill") ||
+      msg.text.includes("The Mafia is voting") ||
+      msg.text.includes("Mafia memilih korban") ||
+      msg.text.includes("Siapa yang akan kamu bunuh")
+    ) {
+      if (
+        (msg.text.includes("Who will you kill") ||
+          msg.text.includes("Siapa yang akan Anda bunuh")) &&
+        !Cache.get(`afkmodeMani`)
+      )
+        return;
+
+      const btn = buttons.find((b: any) => {
+        return (
+          b.text?.includes(target) &&
+          b.type?.className === "InlineButtonTypeCallback" &&
+          b.type?.data
+        );
+      });
+      if (btn) this.clickButton(client, msg, btn);
+    }
+
+    // --- SANTA ---
+    if (
+      (msg.text.includes("Who is getting the gifts") ||
+        msg.text.includes("Siapa yang akan mendapatkan hadiah")) &&
+      Cache.get(`afkmodeSanta`)
+    ) {
+      const btn = buttons.find((b: any) => {
+        return (
+          b.text?.includes(target) &&
+          b.type?.className === "InlineButtonTypeCallback" &&
+          b.type?.data
+        );
+      });
+      if (btn) this.clickButton(client, msg, btn);
+    }
+
+    // --- DON INVESTIGATE ---
+    if (
+      (msg.text.includes("Who shall we look") ||
+        msg.text.includes("Siapa yang kita selidiki")) &&
+      Cache.get(`afkmodeDonCh`)
+    ) {
+      const btnList = buttons.filter((b: any) => {
+        return b.type?.className === "InlineButtonTypeCallback" && b.type?.data;
+      });
+      const btn = btnList[Math.floor(Math.random() * btnList.length)];
+
+      if (btn) this.clickButton(client, msg, btn);
     }
   }
 
@@ -256,6 +317,7 @@ export class UserBots {
     Cache.del(`afkmodeDet`);
     Cache.del(`afkmodeMani`);
     Cache.del(`afkmodeSanta`);
+    Cache.del(`afkmodeDonCh`);
     Cache.del(`useVote`);
     Cache.del(`mode`);
     Cache.del(`target`);

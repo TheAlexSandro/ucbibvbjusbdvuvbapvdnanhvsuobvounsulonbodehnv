@@ -24,12 +24,18 @@ export class BotHandle {
     { emoji: "💃", label: "Hooker", cacheKey: "afkmodeHook", action: "Hook" },
     { emoji: "🔪", label: "Maniac", cacheKey: "afkmodeMani", action: "Mani" },
     { emoji: "🎅", label: "Santa", cacheKey: "afkmodeSanta", action: "Santa" },
+    {
+      emoji: "🤵🏻",
+      label: "Don (cek)",
+      cacheKey: "afkmodeDonCh",
+      action: "DonCh",
+    },
   ];
 
   private buildRoleButtons(callbackPrefix: string): any[] {
     return BotHandle.ROLES.map((role) => [
       btn.text(
-        `${role.emoji} ${role.label} ${Cache.get(role.cacheKey) ? "(otomatis)" : "(manual)"}`,
+        `${role.emoji} ${role.label} ${Cache.get(role.cacheKey) ? "otomatis" : "manual"}`,
         `${callbackPrefix}_${role.action}`,
       ),
     ]);
@@ -267,7 +273,7 @@ export class BotHandle {
               `afkmode_conti_none`,
             ),
           ]);
-          keyb.push([btn.text(`❌ Hentikan`, `afkmode_disable_none`)]);
+          keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
 
           this.bot.api.editMessageText(chat?.id!, result.message_id, pesan, {
             parse_mode: "HTML",
@@ -280,6 +286,7 @@ export class BotHandle {
         Cache.set(`afkmodeDet`, true);
         Cache.set(`afkmodeMani`, true);
         Cache.set(`afkmodeSanta`, true);
+        Cache.set(`afkmodeDonCh`, true);
         var pesan = `❇️ <b>Masukkan Angka</b>`;
         pesan += `\nBerapa lama Anda ingin ngehama?`;
         let keyb = [];
@@ -541,65 +548,68 @@ export class BotHandle {
       }
 
       if (type === "manage") {
-        this.ctx.editMessageText(`⏳ Memproses...`);
-        var pesan = `✏️ <b>Kelola Grup</b>`;
-        pesan += `\nPilih grup mana yang ingin Anda hapus.`;
-        let keyb = [];
+        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+          var pesan = `✏️ <b>Kelola Grup</b>`;
+          pesan += `\nPilih grup mana yang ingin Anda hapus.`;
+          let keyb = [];
 
-        Database.orm.public.Group.all().then((db_result) => {
-          if (db_result.length <= 0)
-            return this.ctx.answerCallbackQuery({
-              text: `⚠️ Tidak ada grup.`,
-              show_alert: true,
+          Database.orm.public.Group.all().then((db_result) => {
+            if (db_result.length <= 0)
+              return this.ctx.answerCallbackQuery({
+                text: `⚠️ Tidak ada grup.`,
+                show_alert: true,
+              });
+            for (var i = 0; i < db_result.length; i++) {
+              keyb.push([
+                btn.text(db_result[i].GroupName, `nothing`),
+                btn.text(`🗑`, `group_del_${db_result[i].GroupId}`),
+              ]);
+            }
+            keyb.push([btn.text(`⬅️ Return`, `group_return_none`)]);
+
+            this.ctx.editMessageText(pesan, {
+              parse_mode: "HTML",
+              reply_markup: markup.inlineKeyboard(keyb),
             });
-          for (var i = 0; i < db_result.length; i++) {
-            keyb.push([
-              btn.text(db_result[i].GroupName, `nothing`),
-              btn.text(`🗑`, `group_del_${db_result[i].GroupId}`),
-            ]);
-          }
-          keyb.push([btn.text(`⬅️ Return`, `group_return_none`)]);
-
-          this.ctx.editMessageText(pesan, {
-            parse_mode: "HTML",
-            reply_markup: markup.inlineKeyboard(keyb),
           });
         });
         return;
       }
 
       if (type === "del") {
-        Database.orm.public.Group.where({ GroupId: groupId })
-          .delete()
-          .then(() => {
-            let keyb = [];
-            Database.orm.public.Group.all().then((db_result) => {
-              if (db_result.length <= 0) {
-                var pesan = `👥 <b>Kelola Grup</b>`;
-                pesan += `\nTambahkan grup atau kelola grup yang sudah ada.`;
-                let keyb = [];
-                keyb[0] = [btn.text(`✏️ Kelola Grup`, `group_manage_none`)];
-                keyb[1] = [btn.text(`➕ Tambah Grup`, `group_add_none`)];
-                this.ctx.editMessageText(pesan, {
-                  parse_mode: "HTML",
+        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+          Database.orm.public.Group.where({ GroupId: groupId })
+            .delete()
+            .then(() => {
+              let keyb = [];
+              Database.orm.public.Group.all().then((db_result) => {
+                if (db_result.length <= 0) {
+                  var pesan = `👥 <b>Kelola Grup</b>`;
+                  pesan += `\nTambahkan grup atau kelola grup yang sudah ada.`;
+                  let keyb = [];
+                  keyb[0] = [btn.text(`✏️ Kelola Grup`, `group_manage_none`)];
+                  keyb[1] = [btn.text(`➕ Tambah Grup`, `group_add_none`)];
+                  this.ctx.editMessageText(pesan, {
+                    parse_mode: "HTML",
+                    reply_markup: markup.inlineKeyboard(keyb),
+                  });
+                  return;
+                }
+
+                for (var i = 0; i < db_result.length; i++) {
+                  keyb.push([
+                    btn.text(db_result[i].GroupName, `nothing`),
+                    btn.text(`🗑`, `group_del_${db_result[i].GroupId}`),
+                  ]);
+                }
+                keyb.push([btn.text(`⬅️ Return`, `group_return_none`)]);
+
+                this.ctx.editMessageReplyMarkup({
                   reply_markup: markup.inlineKeyboard(keyb),
                 });
-                return;
-              }
-
-              for (var i = 0; i < db_result.length; i++) {
-                keyb.push([
-                  btn.text(db_result[i].GroupName, `nothing`),
-                  btn.text(`🗑`, `group_del_${db_result[i].GroupId}`),
-                ]);
-              }
-              keyb.push([btn.text(`⬅️ Return`, `group_return_none`)]);
-
-              this.ctx.editMessageReplyMarkup({
-                reply_markup: markup.inlineKeyboard(keyb),
               });
             });
-          });
+        });
         return;
       }
     }
@@ -624,99 +634,101 @@ export class BotHandle {
       }
 
       if (type === "refresh") {
-        this.ctx.editMessageText(`⏳ Memproses...`);
-        const updateAllGroupNames = () => {
-          Database.orm.public.Group.select("GroupId")
-            .all()
-            .then((dbResult) => {
-              let successCount = 0;
-              let failCount = 0;
+        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+          const updateAllGroupNames = () => {
+            Database.orm.public.Group.select("GroupId")
+              .all()
+              .then((dbResult) => {
+                let successCount = 0;
+                let failCount = 0;
 
-              const processGroup = (groupIndex: number): void => {
-                if (groupIndex >= dbResult.length) {
-                  if (successCount > 0) {
-                    let keyb = [];
-                    keyb[0] = [btn.text(`⬅️ Kembali`, `next_return_none`)];
-                    this.ctx.editMessageText(
-                      `✅ <b>Berhasil!</b>\n${successCount} grup berhasil diperbarui.` +
-                        (failCount > 0
-                          ? `\n⚠️ ${failCount} grup gagal diperbarui (tidak ada userbot yang bisa mengakses).`
-                          : ""),
-                      {
-                        parse_mode: "HTML",
-                        reply_markup: markup.inlineKeyboard(keyb),
-                      },
-                    );
-                    this.ctx.answerCallbackQuery().catch(() => {});
-                  } else {
-                    this.ctx.editMessageText(
-                      `❌ <b>Gagal!</b>\nTidak ada userbot yang bisa mendapatkan info grup tersebut, salah 1 grup tidak tersedia atau userbot tidak berada dalam grup tersebut.`,
-                      { parse_mode: "HTML" },
-                    );
-                  }
-                  return;
-                }
-
-                const groupId = dbResult[groupIndex].GroupId;
-
-                const tryClient = (clientIndex: number): void => {
-                  if (clientIndex >= this.clients.length) {
-                    failCount++;
-                    processGroup(groupIndex + 1);
+                const processGroup = (groupIndex: number): void => {
+                  if (groupIndex >= dbResult.length) {
+                    if (successCount > 0) {
+                      let keyb = [];
+                      keyb[0] = [btn.text(`⬅️ Kembali`, `next_return_none`)];
+                      this.ctx.editMessageText(
+                        `✅ <b>Berhasil!</b>\n${successCount} grup berhasil diperbarui.` +
+                          (failCount > 0
+                            ? `\n⚠️ ${failCount} grup gagal diperbarui (tidak ada userbot yang bisa mengakses).`
+                            : ""),
+                        {
+                          parse_mode: "HTML",
+                          reply_markup: markup.inlineKeyboard(keyb),
+                        },
+                      );
+                      this.ctx.answerCallbackQuery().catch(() => {});
+                    } else {
+                      this.ctx.editMessageText(
+                        `❌ <b>Gagal!</b>\nTidak ada userbot yang bisa mendapatkan info grup tersebut, salah 1 grup tidak tersedia atau userbot tidak berada dalam grup tersebut.`,
+                        { parse_mode: "HTML" },
+                      );
+                    }
                     return;
                   }
 
-                  this.clients[clientIndex]
-                    .getEntity(groupId)
-                    .then((entity: any) => {
-                      return Database.orm.public.Group.where({
-                        GroupId: groupId,
+                  const groupId = dbResult[groupIndex].GroupId;
+
+                  const tryClient = (clientIndex: number): void => {
+                    if (clientIndex >= this.clients.length) {
+                      failCount++;
+                      processGroup(groupIndex + 1);
+                      return;
+                    }
+
+                    this.clients[clientIndex]
+                      .getEntity(groupId)
+                      .then((entity: any) => {
+                        return Database.orm.public.Group.where({
+                          GroupId: groupId,
+                        })
+                          .update({ GroupName: String(entity.title) })
+                          .then(() => {
+                            successCount++;
+                            processGroup(groupIndex + 1);
+                          });
                       })
-                        .update({ GroupName: String(entity.title) })
-                        .then(() => {
-                          successCount++;
-                          processGroup(groupIndex + 1);
-                        });
-                    })
-                    .catch(() => {
-                      tryClient(clientIndex + 1);
-                    });
+                      .catch(() => {
+                        tryClient(clientIndex + 1);
+                      });
+                  };
+
+                  tryClient(0);
                 };
 
-                tryClient(0);
-              };
+                processGroup(0);
+              });
+          };
 
-              processGroup(0);
-            });
-        };
-
-        updateAllGroupNames();
+          updateAllGroupNames();
+        });
         return;
       }
 
       if (type === "return") {
-        this.ctx.editMessageText(`⏳ Memproses...`);
-        var pesan = `👥 <b>Pilih Grup</b>`;
-        pesan += `\nPilih grup di mana Anda ingin mengirim perintah /next`;
-        pesan += `\nNama grup tidak terbaru? Tekan tombol refresh.`;
-        Database.orm.public.Group.all().then((db_result) => {
-          let keyb = [];
+        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+          var pesan = `👥 <b>Pilih Grup</b>`;
+          pesan += `\nPilih grup di mana Anda ingin mengirim perintah /next`;
+          pesan += `\nNama grup tidak terbaru? Tekan tombol refresh.`;
+          Database.orm.public.Group.all().then((db_result) => {
+            let keyb = [];
 
-          for (var i = 0; i < db_result.length; i++) {
-            keyb.push([
-              btn.text(
-                db_result[i].GroupName,
-                `next_${db_result[i].GroupId}_method`,
-              ),
-            ]);
-          }
-          keyb.push([btn.text(`🔄 Refresh`, `next_refresh_none`)]);
+            for (var i = 0; i < db_result.length; i++) {
+              keyb.push([
+                btn.text(
+                  db_result[i].GroupName,
+                  `next_${db_result[i].GroupId}_method`,
+                ),
+              ]);
+            }
+            keyb.push([btn.text(`🔄 Refresh`, `next_refresh_none`)]);
 
-          this.ctx.editMessageText(pesan, {
-            parse_mode: "HTML",
-            reply_markup: markup.inlineKeyboard(keyb),
+            this.ctx.editMessageText(pesan, {
+              parse_mode: "HTML",
+              reply_markup: markup.inlineKeyboard(keyb),
+            });
+            this.ctx.answerCallbackQuery().catch(() => {});
           });
-          this.ctx.answerCallbackQuery().catch(() => {});
         });
         return;
       }
@@ -742,102 +754,104 @@ export class BotHandle {
       }
 
       if (method === "direct") {
-        this.ctx.editMessageText(`⏳ Memproses...`).catch(() => {});
-        Cache.set(`join`, "direct");
         const target = mc[1];
-        Cache.set(`groupTarget`, target);
-        Database.orm.public.DisabledUserBot.select("UserId")
-          .all()
-          .then((db_result) => {
-            db_result.map((id) => {
-              Cache.set(`userbot_${id}_disabled`, true);
-            });
-            Database.orm.public.Group.where({ GroupId: target })
-              .select("GroupName")
-              .first()
-              .then((db_result) => {
-                Cache.set(`groupName`, db_result?.GroupName);
-                var pesan = `✅ <b>Metode Diatur!</b>`;
-                pesan += `\nUserbot akan bergabung dalam permainan ketika pendaftaran dibuka di ${db_result?.GroupName}`;
-                let keyb: any[] = [];
-                keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
-
-                this.ctx.deleteMessage();
-                Utils.sendMessageToAdmin(this.bot, pesan, keyb);
+        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+          Cache.set(`join`, "direct");
+          Cache.set(`groupTarget`, target);
+          Database.orm.public.DisabledUserBot.select("UserId")
+            .all()
+            .then((db_result) => {
+              db_result.map((id) => {
+                Cache.set(`userbot_${id}_disabled`, true);
               });
-          });
+              Database.orm.public.Group.where({ GroupId: target })
+                .select("GroupName")
+                .first()
+                .then((db_result) => {
+                  Cache.set(`groupName`, db_result?.GroupName);
+                  var pesan = `✅ <b>Metode Diatur!</b>`;
+                  pesan += `\nUserbot akan bergabung dalam permainan ketika pendaftaran dibuka di ${db_result?.GroupName}`;
+                  let keyb: any[] = [];
+                  keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
+
+                  this.ctx.deleteMessage();
+                  Utils.sendMessageToAdmin(this.bot, pesan, keyb);
+                });
+            });
+        });
         return;
       }
 
       if (method === "send") {
-        this.ctx.editMessageText(`⏳ Memproses...`);
         const target = mc[1];
-        Cache.set(`groupTarget`, target);
-        Cache.set(`join`, "next");
+        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+          Cache.set(`groupTarget`, target);
+          Cache.set(`join`, "next");
 
-        Database.orm.public.DisabledUserBot.select("UserId")
-          .all()
-          .then((db_result) => {
-            db_result.map((id) => {
-              Cache.set(`userbot_${id}_disabled`, true);
-            });
-
-            return Database.orm.public.Group.where({ GroupId: target })
-              .select("GroupName")
-              .first()
-              .then((db_result) => {
-                Cache.set(`groupName`, db_result?.GroupName);
-
-                const processNext = (i: number): void => {
-                  if (i >= this.clients.length) {
-                    var pesan = `✅ <b>Perintah Terkirim!</b>`;
-                    pesan += `\nPerintah /next telah dikirim ke grup tujuan - ${db_result?.GroupName}`;
-                    let keyb: any[] = [];
-                    keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
-
-                    this.ctx.deleteMessage();
-                    Utils.sendMessageToAdmin(this.bot, pesan, keyb);
-                    return;
-                  }
-
-                  this.clients[i]
-                    .getMe()
-                    .then((entity) => {
-                      return this.clients[i]
-                        .getEntity(target)
-                        .then((chat_result) => {
-                          const isDisabled = Cache.get(
-                            `userbot_${String(entity.id)}_disabled`,
-                          );
-                          if (isDisabled) return;
-                          return this.clients[i].sendMessage(chat_result, {
-                            message: "/next",
-                          });
-                        })
-                        .catch((err) => {
-                          const fullName = entity.lastName
-                            ? `${entity.firstName} ${entity.lastName}`
-                            : entity.firstName;
-                          const errMsg = err.message.includes(
-                            `You're banned from sending messages in supergroups/channels.`,
-                          )
-                            ? `userbot mungkin dibatasi Telegram untuk mengirim pesan. Userbot akan mencoba bergabung saat ada pendaftaran dimulai.`
-                            : `userbot mungkin diblokir atau belum bergabung dalam grup.`;
-
-                          Utils.sendMessageToAdmin(
-                            this.bot,
-                            `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> gagal mengirim perintah /next ke grup, ${errMsg}`,
-                          );
-                        });
-                    })
-                    .finally(() => {
-                      processNext(i + 1);
-                    });
-                };
-
-                processNext(0);
+          Database.orm.public.DisabledUserBot.select("UserId")
+            .all()
+            .then((db_result) => {
+              db_result.map((id) => {
+                Cache.set(`userbot_${id}_disabled`, true);
               });
-          });
+
+              return Database.orm.public.Group.where({ GroupId: target })
+                .select("GroupName")
+                .first()
+                .then((db_result) => {
+                  Cache.set(`groupName`, db_result?.GroupName);
+
+                  const processNext = (i: number): void => {
+                    if (i >= this.clients.length) {
+                      var pesan = `✅ <b>Perintah Terkirim!</b>`;
+                      pesan += `\nPerintah /next telah dikirim ke grup tujuan - ${db_result?.GroupName}`;
+                      let keyb: any[] = [];
+                      keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
+
+                      this.ctx.deleteMessage();
+                      Utils.sendMessageToAdmin(this.bot, pesan, keyb);
+                      return;
+                    }
+
+                    this.clients[i]
+                      .getMe()
+                      .then((entity) => {
+                        return this.clients[i]
+                          .getEntity(target)
+                          .then((chat_result) => {
+                            const isDisabled = Cache.get(
+                              `userbot_${String(entity.id)}_disabled`,
+                            );
+                            if (isDisabled) return;
+                            return this.clients[i].sendMessage(chat_result, {
+                              message: "/next",
+                            });
+                          })
+                          .catch((err) => {
+                            const fullName = entity.lastName
+                              ? `${entity.firstName} ${entity.lastName}`
+                              : entity.firstName;
+                            const errMsg = err.message.includes(
+                              `You're banned from sending messages in supergroups/channels.`,
+                            )
+                              ? `userbot mungkin dibatasi Telegram untuk mengirim pesan. Userbot akan mencoba bergabung saat ada pendaftaran dimulai.`
+                              : `userbot mungkin diblokir atau belum bergabung dalam grup.`;
+
+                            Utils.sendMessageToAdmin(
+                              this.bot,
+                              `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> gagal mengirim perintah /next ke grup, ${errMsg}`,
+                            );
+                          });
+                      })
+                      .finally(() => {
+                        processNext(i + 1);
+                      });
+                  };
+
+                  processNext(0);
+                });
+            });
+        });
         return;
       }
     }
@@ -927,7 +941,7 @@ export class BotHandle {
             `afkmode_conti_none`,
           ),
         ]);
-        keyb.push([btn.text(`❌ Hentikan`, `afkmode_disable_none`)]);
+        keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
 
         this.ctx
           .editMessageText(pesan, {
@@ -963,7 +977,7 @@ export class BotHandle {
             `afkmode_conti_none`,
           ),
         ]);
-        keyb.push([btn.text(`❌ Hentikan`, `afkmode_disable_none`)]);
+        keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
 
         this.ctx
           .editMessageReplyMarkup({
@@ -1000,7 +1014,7 @@ export class BotHandle {
             `afkmode_conti_none`,
           ),
         ]);
-        keyb.push([btn.text(`❌ Hentikan`, `afkmode_disable_none`)]);
+        keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
 
         this.ctx
           .editMessageReplyMarkup({
@@ -1062,7 +1076,7 @@ export class BotHandle {
             `afkmode_conti_none`,
           ),
         ]);
-        keyb.push([btn.text(`❌ Hentikan`, `afkmode_disable_none`)]);
+        keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
 
         this.ctx
           .editMessageReplyMarkup({
@@ -1239,13 +1253,38 @@ export class BotHandle {
           });
           return;
         }
+        var pesan = `⚠️ <b>Perhatian!</b>\nApakah Anda yakin ingin menonaktifkan suck mode di ${Cache.get(`groupName`)}?`;
+        let keyb = [];
+        keyb[0] = [
+          btn.text(`✅ Ya`, `afkmode_disableC_none`),
+          btn.text(`❌ Tidak`, `afkmode_return_none`),
+        ];
+
+        this.ctx
+          .editMessageText(pesan, {
+            parse_mode: "HTML",
+            reply_markup: markup.inlineKeyboard(keyb),
+          })
+          .catch(() => {});
+        this.ctx.answerCallbackQuery().catch(() => {});
+        return;
+      }
+
+      if (type === "disableC") {
+        if (String(Cache.get(`mode`)) !== "afkmode") {
+          this.ctx.deleteMessage();
+          this.ctx.answerCallbackQuery({
+            text: "⚠️ Suck mode tidak aktif.",
+            show_alert: true,
+          });
+          return;
+        }
         UserBots.clearSmode();
         this.ctx.deleteMessage();
         Utils.sendMessageToAdmin(
           this.bot,
           `✅ <b>Suck Mode Dimatikan!</b>\nUserbot akan afk hingga permainan berakhir.`,
         );
-        return;
       }
     }
   }
