@@ -581,7 +581,6 @@ export class BotHandle {
           Database.orm.public.Group.where({ GroupId: groupId })
             .delete()
             .then(() => {
-              let keyb = [];
               Database.orm.public.Group.all().then((db_result) => {
                 if (db_result.length <= 0) {
                   var pesan = `👥 <b>Kelola Grup</b>`;
@@ -596,6 +595,10 @@ export class BotHandle {
                   return;
                 }
 
+                var pesan = `✏️ <b>Kelola Grup</b>`;
+                pesan += `\nPilih grup mana yang ingin Anda hapus.`;
+                let keyb = [];
+
                 for (var i = 0; i < db_result.length; i++) {
                   keyb.push([
                     btn.text(db_result[i].GroupName, `nothing`),
@@ -604,7 +607,8 @@ export class BotHandle {
                 }
                 keyb.push([btn.text(`⬅️ Return`, `group_return_none`)]);
 
-                this.ctx.editMessageReplyMarkup({
+                this.ctx.editMessageText(pesan, {
+                  parse_mode: "HTML",
                   reply_markup: markup.inlineKeyboard(keyb),
                 });
               });
