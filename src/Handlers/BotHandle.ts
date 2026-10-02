@@ -35,7 +35,7 @@ export class BotHandle {
   private buildRoleButtons(callbackPrefix: string): any[] {
     return BotHandle.ROLES.map((role) => [
       btn.text(
-        `${role.emoji} ${role.label} ${Cache.get(role.cacheKey) ? "otomatis" : "manual"}`,
+        `${role.emoji} ${role.label} - ${Cache.get(role.cacheKey) ? "otomatis" : "manual"}`,
         `${callbackPrefix}_${role.action}`,
       ),
     ]);
