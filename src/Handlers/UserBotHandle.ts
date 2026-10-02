@@ -98,7 +98,8 @@ export class UserBotHandle {
         msg.text.includes("You are") ||
         msg.text.includes("is a new") ||
         msg.text.includes("Anda adalah") ||
-        msg.text.includes("Anda sekarang")
+        msg.text.includes("Anda sekarang") ||
+        msg.text.includes("baru")
       ) {
         if (
           msg.text.includes("you're already in the game") ||
@@ -376,7 +377,7 @@ export class UserBotHandle {
         ) {
           if (
             (msg.text.includes("Who will you") ||
-              msg.text.includes("Siapa yang")) &&
+              msg.text.includes("Siapa yang akan Anda")) &&
             !Cache.get(`afkmodeDet`)
           )
             return;
