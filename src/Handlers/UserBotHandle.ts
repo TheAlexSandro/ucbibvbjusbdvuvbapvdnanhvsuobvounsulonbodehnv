@@ -34,9 +34,6 @@ export class UserBotHandle {
     if (isDisabled) return;
 
     const msg = this.event.message;
-    const serverTime = msg.date * 1000;
-    const receivedTime = Date.now();
-    const delay = receivedTime - serverTime;
 
     if (msg.out) return;
     if (
@@ -79,10 +76,7 @@ export class UserBotHandle {
             });
         }
 
-        const getMode = Cache.get("mode");
-        if (getMode === "afkmode") {
-          UserBots.handleAfkMode(this.client, msg, buttons);
-        }
+        UserBots.handleAfkMode(this.client, msg, buttons);
       }
 
       if (
