@@ -108,10 +108,23 @@ export class UserBots {
       this.clickButton(client, msg, btn);
     }
 
-    // --- DOCTOR & LAWYER ---
+    // --- DOCTOR ----
     if (
       msg.text.includes("Who will you heal") ||
-      msg.text.includes("Siapa yang akan kamu sembuhkan") ||
+      msg.text.includes("Siapa yang akan kamu sembuhkan")
+    ) {
+      const btn = buttons.find((b: any) => {
+        return (
+          b.text?.includes(target) &&
+          b.type?.className === "InlineButtonTypeCallback" &&
+          b.type?.data
+        );
+      });
+      if (btn) this.clickButton(client, msg, btn);
+    }
+
+    // --- LAWYER ----
+    if (
       msg.text.includes("Who will you protect from justice") ||
       msg.text.includes("Siapa yang akan Anda lindungi dari keadilan")
     ) {
@@ -185,11 +198,19 @@ export class UserBots {
       }
     }
 
-    // --- HOBO & JOURNALIST ---
+    // --- HOBO ---
+    if (msg.text.includes("Whose glass") || msg.text.includes("Botol kaca")) {
+      const btnList = buttons.filter((b: any) => {
+        return b.type?.className === "InlineButtonTypeCallback" && b.type?.data;
+      });
+      const btn = btnList[Math.floor(Math.random() * btnList.length)];
+
+      if (btn) this.clickButton(client, msg, btn);
+    }
+
+    // ---JOURNALIST ---
     if (
-      msg.text.includes("Whose glass") ||
       msg.text.includes("Who's today's") ||
-      msg.text.includes("Botol kaca") ||
       msg.text.includes("Tentang siapa")
     ) {
       const btnList = buttons.filter((b: any) => {
@@ -200,20 +221,27 @@ export class UserBots {
       if (btn) this.clickButton(client, msg, btn);
     }
 
-    // --- MAFIA & MANIAC ---
+    // --- MAFIA ---
     if (
-      msg.text.includes("Who will you kill") ||
       msg.text.includes("The Mafia is voting") ||
-      msg.text.includes("Mafia memilih korban") ||
-      msg.text.includes("Siapa yang akan kamu bunuh")
+      msg.text.includes("Mafia memilih korban")
     ) {
-      if (
-        (msg.text.includes("Who will you kill") ||
-          msg.text.includes("Siapa yang akan Anda bunuh")) &&
-        !Cache.get(`afkmodeMani`)
-      )
-        return;
+      const btn = buttons.find((b: any) => {
+        return (
+          b.text?.includes(target) &&
+          b.type?.className === "InlineButtonTypeCallback" &&
+          b.type?.data
+        );
+      });
+      if (btn) this.clickButton(client, msg, btn);
+    }
 
+    // --- MANIAC ---
+    if (
+      (msg.text.includes("Who will you kill") ||
+        msg.text.includes("Siapa yang akan kamu bunuh")) &&
+      Cache.get(`afkmodeMani`)
+    ) {
       const btn = buttons.find((b: any) => {
         return (
           b.text?.includes(target) &&
