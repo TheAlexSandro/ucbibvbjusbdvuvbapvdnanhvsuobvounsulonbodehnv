@@ -106,7 +106,9 @@ export class UserBotHandle {
       ) {
         if (
           msg.text.includes("you're already in the game") ||
-          msg.text.includes("Anda sudah dalam game")
+          msg.text.includes("Anda sudah dalam game") ||
+          msg.text.includes("Anda baru saja keluar") ||
+          msg.text.includes("You just")
         )
           return;
 
@@ -226,27 +228,6 @@ export class UserBotHandle {
         }
 
         if (
-          msg.text.includes("Game over") ||
-          msg.text.includes("The game is over") ||
-          msg.text.includes("Game over") ||
-          msg.text.includes("Permainan Berakhir")
-        ) {
-          if (Cache.get(`userbot_${String(this.info.id)}_disabled`)) return;
-          if (!Cache.get(`continu`)) return;
-          GameLoopEvents.emit("gameOverDetected", String(this.info.id), () =>
-            msg.respond({ message: "/game@TrueMafiaBot" }),
-          );
-        }
-
-        if (
-          msg.text.includes("Registration") ||
-          msg.text.includes("Pendaftaran")
-        ) {
-          if (!Cache.get(`continu`)) return;
-          GameLoopEvents.emit("registrationDetected");
-        }
-
-        if (
           (msg.text.includes("Are you sure about lynching") ||
             msg.text.includes("Anda yakin ingin menggantung")) &&
           msg.text.includes(String(Cache.get(`target`))) &&
@@ -311,6 +292,9 @@ export class UserBotHandle {
           Cache.set(`begins`, true);
           Cache.del(`registrationHandled`);
           Cache.del(`hasSentGame`);
+        }
+        if (!Cache.get(`night`)) {
+          Cache.set(`night`, true);
         }
         Cache.set(`roleSepaDon`, true);
         Cache.del(`hasSent`);

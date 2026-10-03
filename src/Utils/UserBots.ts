@@ -72,6 +72,7 @@ export class UserBots {
     buttons: Api.KeyboardInlineButton[],
   ) {
     if (!Cache.get(`begins`)) return;
+    if (!Cache.get(`night`)) return;
     const getRoleList = String(Cache.get(`role`));
     if (
       !(getRoleList.includes("doctor") || getRoleList.includes("dokter")) &&
@@ -88,6 +89,7 @@ export class UserBots {
     } else {
       target = String(Cache.get(`target`));
     }
+    if (String(Cache.get("mode")) !== "afkmode") return;
     if (Cache.get(`allroleAfk`)) return;
 
     // --- DETECTIVE ---
@@ -343,6 +345,7 @@ export class UserBots {
     Cache.del(`hasSentWarnKill`);
     Cache.del(`doctor`);
     Cache.del(`dayNow`);
+    Cache.del(`night`);
     Cache.del(`registrationHandled`);
     const getUbot = String(process.env["USERBOT"]).split(",");
     getUbot.map((id: string) => {
