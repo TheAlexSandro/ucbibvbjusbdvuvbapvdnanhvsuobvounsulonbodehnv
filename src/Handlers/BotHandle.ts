@@ -5,7 +5,6 @@ import { markup, btn } from "../Utils/Buttons";
 import { Cache } from "../Utils/Caches";
 import { Database } from "../prisma/Database";
 import { UserBots } from "../Utils/UserBots";
-import fs from "fs/promises";
 
 const admins = String(process.env["ADMIN"]).split(",");
 export class BotHandle {
@@ -60,33 +59,32 @@ export class BotHandle {
       pesan += `\n• /smode - (suck mode) gunakan perintah ini untuk membuat userbot bertahan hingga hari yang ditentukan, <b>salah satu userbot harus memiliki peran dokter</b>.`;
       pesan += `\n• /ubot - kelola userbot mana yang akan digunakan.`;
       pesan += `\n• /reset - (berbahaya!) gunakan perintah ini untuk menghapus semua cache.`;
-      pesan += `\n• /log - cek log.`;
 
       this.ctx.reply(pesan, { parse_mode: "HTML" });
       return;
     }
 
-    var pola = /^\/log$/i;
-    if (pola.exec(this.ctx.message?.text!)) {
-      const getLog = Cache.get(`log`);
-      let keyb = [];
-      keyb[0] = [btn.text(`🗑 Purge`, `log_purge`)];
-      if (String(getLog).length > 4000) {
-        fs.writeFile("log.txt", String(getLog), "utf-8");
-        this.bot.api.sendDocument(chat?.id!, new InputFile("log.txt"), {
-          reply_markup: markup.inlineKeyboard(keyb),
-        });
-        return;
-      }
-      var pesan = `📝 <b>Log</b>`;
-      pesan += `\n${getLog ? `<code>${getLog}</code>` : "Belum ada apapun."}`;
+    // var pola = /^\/log$/i;
+    // if (pola.exec(this.ctx.message?.text!)) {
+    //   const getLog = Cache.get(`log`);
+    //   let keyb = [];
+    //   keyb[0] = [btn.text(`🗑 Purge`, `log_purge`)];
+    //   if (String(getLog).length > 4000) {
+    //     fs.writeFile("log.txt", String(getLog), "utf-8");
+    //     this.bot.api.sendDocument(chat?.id!, new InputFile("log.txt"), {
+    //       reply_markup: markup.inlineKeyboard(keyb),
+    //     });
+    //     return;
+    //   }
+    //   var pesan = `📝 <b>Log</b>`;
+    //   pesan += `\n${getLog ? `<code>${getLog}</code>` : "Belum ada apapun."}`;
 
-      this.ctx.reply(pesan, {
-        parse_mode: "HTML",
-        reply_markup: markup.inlineKeyboard(keyb),
-      });
-      return;
-    }
+    //   this.ctx.reply(pesan, {
+    //     parse_mode: "HTML",
+    //     reply_markup: markup.inlineKeyboard(keyb),
+    //   });
+    //   return;
+    // }
 
     var pola = /^\/gc$/i;
     if (pola.exec(this.ctx.message?.text!)) {
