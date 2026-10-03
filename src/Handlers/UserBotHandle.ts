@@ -202,6 +202,10 @@ export class UserBotHandle {
                 this.client,
                 String(this.infos[i].id),
                 (entity) => {
+                  const isDisabled = Cache.get(
+                    `userbot_${String(this.infos[i].id)}_disabled`,
+                  );
+                  if (isDisabled) return;
                   client
                     .invoke(
                       new Api.messages.StartBot({
