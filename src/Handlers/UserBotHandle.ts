@@ -182,7 +182,7 @@ export class UserBotHandle {
           ["direct", "next"].includes(String(Cache.get(`join`)))
         ) {
           if (Cache.get(`registrationHandled`)) return;
-          Cache.set(`registrationHandled`, true);
+          Cache.set(`registrationHandled`, true, 60);
 
           const targetButton = buttons.find((b: any) => {
             return (
