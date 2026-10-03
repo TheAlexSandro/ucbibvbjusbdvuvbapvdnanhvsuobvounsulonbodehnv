@@ -2,4 +2,3 @@ node_modules
 dist
 .env*
 src/Test
-src/Utils/GameLoop.ts

@@ -4,7 +4,6 @@ import { Cache } from "../Utils/Caches";
 import { Utils } from "../Utils/Utils";
 import type { Bot } from "grammy";
 import { UserBots } from "../Utils/UserBots";
-import { GameLoopEvents } from "../Utils/GameLoop";
 
 export class UserBotHandle {
   event: NewMessageEvent;
