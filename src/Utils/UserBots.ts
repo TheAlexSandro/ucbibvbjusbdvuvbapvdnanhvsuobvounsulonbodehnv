@@ -129,13 +129,14 @@ export class UserBots {
         msg.text.includes("Siapa yang akan Anda gedor")) &&
       Cache.get(`afkmodeHook`)
     ) {
-      const btn = buttons.find((b: any) => {
+      const btnList = buttons.filter((b: any) => {
         return (
           !b.text?.includes(String(Cache.get(`doctor`))) &&
           b.type?.className === "InlineButtonTypeCallback" &&
           b.type?.data
         );
       });
+      const btn = btnList[Math.floor(Math.random() * btnList.length)];
       if (btn) this.clickButton(client, msg, btn);
     }
 
@@ -144,13 +145,14 @@ export class UserBots {
       msg.text.includes("Who are you taking a bullet") ||
       msg.text.includes("Siapa yang akan Anda lindungi")
     ) {
-      const btn = buttons.find((b: any) => {
+      const btnList = buttons.filter((b: any) => {
         return (
           !b.text?.includes(target) &&
           b.type?.className === "InlineButtonTypeCallback" &&
           b.type?.data
         );
       });
+      const btn = btnList[Math.floor(Math.random() * btnList.length)];
       if (btn) this.clickButton(client, msg, btn);
     }
 
