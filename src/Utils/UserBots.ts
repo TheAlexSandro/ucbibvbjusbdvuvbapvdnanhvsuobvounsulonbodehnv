@@ -94,8 +94,8 @@ export class UserBots {
 
     // --- DETECTIVE ---
     if (
-      (msg.text.includes("It's time to act") ||
-        msg.text.includes("Saatnya bertindak")) &&
+      (msg.text.includes("act") ||
+        msg.text.includes("bertindak")) &&
       Cache.get(`afkmodeDet`)
     ) {
       const btn = buttons.find((b: any) => {
@@ -111,7 +111,8 @@ export class UserBots {
     // --- DOCTOR ----
     if (
       msg.text.includes("Who will you heal") ||
-      msg.text.includes("Siapa yang akan kamu sembuhkan")
+      msg.text.includes("Siapa yang akan kamu sembuhkan") ||
+      msg.text.includes("Siapa yang akan Anda sembuhkan")
     ) {
       const btn = buttons.find((b: any) => {
         return (
@@ -239,7 +240,8 @@ export class UserBots {
     // --- MANIAC ---
     if (
       (msg.text.includes("Who will you kill") ||
-        msg.text.includes("Siapa yang akan kamu bunuh")) &&
+        msg.text.includes("Siapa yang akan kamu bunuh") ||
+        msg.text.includes("Siapa yang akan Anda bunuh")) &&
       Cache.get(`afkmodeMani`)
     ) {
       const btn = buttons.find((b: any) => {
