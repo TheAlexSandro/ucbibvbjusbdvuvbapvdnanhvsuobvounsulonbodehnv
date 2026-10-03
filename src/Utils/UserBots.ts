@@ -4,8 +4,6 @@ import { Utils } from "./Utils";
 import type { Bot } from "grammy";
 import { Entity } from "teleproto/define";
 
-type Callback<T> = (error: string | null, result: T) => void;
-
 export class UserBots {
   private static getTarget(obj: string) {
     const parsed = Object.fromEntries(
@@ -343,9 +341,32 @@ export class UserBots {
     Cache.del(`hasSentWarnKill`);
     Cache.del(`doctor`);
     Cache.del(`dayNow`);
+    Cache.del(`registrationHandled`);
     const getUbot = String(process.env["USERBOT"]).split(",");
     getUbot.map((id: string) => {
       Cache.del(`hasSentKill_${id}`);
     });
+  }
+
+  static setMafiaEntity(client: TelegramClient, id: string) {
+    client.getEntity(String(process.env["TRUE_MAFIA"])).then((entity) => {
+      Cache.set(`mafiaEntity_${id}`, entity);
+    });
+  }
+
+  static getMafiaEntity(
+    client: TelegramClient,
+    id: string,
+    callback: (result: Entity) => void,
+  ) {
+    const getEnt = Cache.get(`mafiaEntity_${id}`);
+    if (!getEnt) {
+      client.getEntity(String(process.env["TRUE_MAFIA"])).then((entity) => {
+        Cache.set(`mafiaEntity_${id}`, entity);
+        return callback(entity);
+      });
+    } else {
+      return callback(getEnt as Entity);
+    }
   }
 }

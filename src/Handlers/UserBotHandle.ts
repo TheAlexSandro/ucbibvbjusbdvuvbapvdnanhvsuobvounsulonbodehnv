@@ -12,6 +12,7 @@ export class UserBotHandle {
   bot: Bot;
   clients: TelegramClient[];
   info: Api.User;
+  infos: Api.User[];
 
   constructor(
     evn: NewMessageEvent,
@@ -19,12 +20,14 @@ export class UserBotHandle {
     bot: Bot,
     clients: TelegramClient[],
     info: Api.User,
+    infos: Api.User[],
   ) {
     this.event = evn;
     this.client = client;
     this.bot = bot;
     this.clients = clients;
     this.info = info;
+    this.infos = infos;
   }
 
   public handle() {
@@ -178,9 +181,8 @@ export class UserBotHandle {
             msg.text.includes("Pendaftaran")) &&
           ["direct", "next"].includes(String(Cache.get(`join`)))
         ) {
-          Utils.writeLog(
-            `[${msg.chatId}] server: ${new Date(serverTime).toISOString()}, diterima: ${new Date(receivedTime).toISOString()}, delay: ${delay}ms, user: ${this.info.firstName}\n`,
-          );
+          if (Cache.get(`registrationHandled`)) return;
+          Cache.set(`registrationHandled`, true);
 
           const targetButton = buttons.find((b: any) => {
             return (
@@ -194,31 +196,27 @@ export class UserBotHandle {
             const url = (targetButton as any).type.url;
             const parsed = new URL(url);
             const startParam = String(parsed.searchParams.get("start"));
-            this.client
-              .getEntity(String(process.env["TRUE_MAFIA"]))
-              .then((entity) => {
-                const clickStart = Date.now();
 
-                return this.client
-                  .invoke(
-                    new Api.messages.StartBot({
-                      bot: entity,
-                      peer: entity,
-                      randomId: BigInt(Math.floor(Math.random() * 1e18)) as any,
-                      startParam,
-                    }),
-                  )
-                  .then(() => {
-                    Utils.writeLog(
-                      `[CLICK] tombol oleh ${this.info.firstName} butuh ${Date.now() - clickStart}ms\n`,
-                    );
-                  })
-                  .catch(() => {
-                    Utils.writeLog(
-                      `[CLICK FAIL] tombol oleh ${this.info.firstName} setelah ${Date.now() - clickStart}ms\n`,
-                    );
-                  });
-              });
+            this.clients.forEach((client, i) => {
+              UserBots.getMafiaEntity(
+                this.client,
+                String(this.infos[i].id),
+                (entity) => {
+                  client
+                    .invoke(
+                      new Api.messages.StartBot({
+                        bot: entity,
+                        peer: entity,
+                        randomId: BigInt(
+                          Math.floor(Math.random() * 1e18),
+                        ) as any,
+                        startParam,
+                      }),
+                    )
+                    .catch(() => {});
+                },
+              );
+            });
           }
           return;
         }
@@ -293,6 +291,7 @@ export class UserBotHandle {
       ) {
         if (!Cache.get(`begins`)) {
           Cache.set(`begins`, true);
+          Cache.del(`registrationHandled`);
           Cache.del(`hasSentGame`);
         }
         if (Cache.get(`join`) && !Cache.get(`continu`)) {
@@ -306,6 +305,7 @@ export class UserBotHandle {
       ) {
         if (!Cache.get(`begins`)) {
           Cache.set(`begins`, true);
+          Cache.del(`registrationHandled`);
           Cache.del(`hasSentGame`);
         }
         Cache.set(`roleSepaDon`, true);
@@ -327,7 +327,7 @@ export class UserBotHandle {
       if (
         msg.text.includes("#ADVERTISING") ||
         msg.text.includes("Game over") ||
-        msg.text.includes("Permainan berakhir")
+        msg.text.includes("Permainan telah berakhir")
       ) {
         if (Cache.get(`role`)) {
           UserBots.clearAll();

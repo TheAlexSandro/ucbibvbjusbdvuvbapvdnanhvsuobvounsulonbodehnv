@@ -43,8 +43,16 @@ const initUserbot = async (stringSession: string, idx: number) => {
   tgClients[idx] = tgClient;
   userInfos[idx] = me;
 
+  UserBots.setMafiaEntity(tgClient, String(me.id));
   tgClient.addEventHandler((event: NewMessageEvent) => {
-    return new UserBotHandle(event, tgClient, bot, tgClients, me).handle();
+    return new UserBotHandle(
+      event,
+      tgClient,
+      bot,
+      tgClients,
+      me,
+      userInfos,
+    ).handle();
   }, new NewMessage({}));
 
   tgClient.addEventHandler((event: EditedMessageEvent) => {
@@ -54,6 +62,7 @@ const initUserbot = async (stringSession: string, idx: number) => {
       bot,
       tgClients,
       me,
+      userInfos,
     ).editedMessageHandle();
   }, new EditedMessage({}));
 
