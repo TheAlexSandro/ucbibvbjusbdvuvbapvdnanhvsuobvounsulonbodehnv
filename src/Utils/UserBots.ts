@@ -63,7 +63,8 @@ export class UserBots {
     client: TelegramClient,
     msg: Api.Message,
     btn: any,
-    delay = 1000,
+    delay = 500,
+    retriesLeft = 2,
   ) {
     setTimeout(() => {
       client
@@ -74,7 +75,15 @@ export class UserBots {
             data: btn.type.data,
           }),
         )
-        .catch(() => {});
+        .catch((err) => {
+          const isTimeout =
+            err?.errorMessage === "BOT_RESPONSE_TIMEOUT" ||
+            err?.message?.includes("BotResponseTimeoutError");
+
+          if (isTimeout && retriesLeft > 0) {
+            this.clickButton(client, msg, btn, 500, retriesLeft - 1);
+          }
+        });
     }, delay);
   }
 
@@ -118,7 +127,7 @@ export class UserBots {
           b.type?.data
         );
       });
-      this.clickButton(client, msg, btn);
+      if (btn) this.clickButton(client, msg, btn);
     }
 
     // --- DOCTOR ----
