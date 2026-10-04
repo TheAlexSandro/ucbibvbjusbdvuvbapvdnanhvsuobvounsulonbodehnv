@@ -119,17 +119,35 @@ export class BotHandle {
           `⚠️ <b>Perhatian!</b>\nUserbot belum mendapatkan peran.`,
           { parse_mode: "HTML" },
         );
+      if (!Cache.get(`night`))
+        return this.ctx.reply(
+          `⚠️ <b>Perhatian!</b>\nPeran terdaftar belum lengkap.`,
+          { parse_mode: "HTML" },
+        );
+
       this.ctx.reply(`⏳ Memproses...`).then((message_result) => {
-        const parsed = Object.fromEntries(
+        const parsedRoles = Object.fromEntries(
           String(getRole)
             .split(",")
             .map((pair: string) => {
-              const [key, value] = pair.split(":");
-              return [key.trim(), value.trim()];
+              const [id, role] = pair.split(":");
+              return [id.trim(), role.trim()];
             }),
         );
-        const result = Object.entries(parsed)
-          .map(([key, value]) => `• ${key} - ${Cache.get(`roleEmot${value}`)}`)
+        const parsedNames = Object.fromEntries(
+          String(Cache.get(`roleNames`))
+            .split(",")
+            .map((pair: string) => {
+              const [id, name] = pair.split(":");
+              return [id?.trim(), name?.trim()];
+            }),
+        );
+
+        const result = Object.entries(parsedRoles)
+          .map(([id, role]) => {
+            const name = parsedNames[id] ?? id;
+            return `• ${name} - ${Cache.get(`roleEmot${role}`)}`;
+          })
           .join("\n");
 
         var pesan = `🎎 <b>Peran</b>`;
