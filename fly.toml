@@ -1,13 +1,13 @@
-# fly.toml app configuration file generated for ucbibvbjusbdvuvbapvdnanhvsuobvounsulonbodehnv on 2026-10-01T15:12:10Z
+# fly.toml app configuration file generated for ucbibvbjusbdvuvbapvdnanhvsuobvounsulonbodehnv on 2026-10-04T04:04:15Z
 #
 # See https://docs.fly.io/reference/configuration for information about how to use this file.
 #
 
 app = "ucbibvbjusbdvuvbapvdnanhvsuobvounsulonbodehnv"
-primary_region = "sin"
+primary_region = 'sin'
 
 [deploy]
-strategy = "immediate"
+  strategy = 'immediate'
 
 [env]
 PORT = "3000"
@@ -16,20 +16,14 @@ PORT = "3000"
 auto_start_machines = true
 auto_stop_machines = false
 force_https = true
-internal_port = 3_000
+internal_port = 3000
 min_machines_running = 1
-
-[[http_service.checks]]
-grace_period = "10s"
-interval = "30s"
-method = "GET"
-path = "/ping"
-timeout = "5s"
+  checks = [{ grace_period = '10s', interval = '30s', method = 'GET', path = '/ping', timeout = '5s' }]
 
 [[vm]]
-cpu_kind = "shared"
-cpus = 4
-memory = "1gb"
-memory_mb = 1_024
-processes = ["app"]
-size = "shared-cpu-4x"
+  cpu_kind = 'shared'
+  cpus = 2
+  memory = '512mb'
+  memory_mb = 512
+  processes = ['app']
+  size = 'shared-cpu-2x'
