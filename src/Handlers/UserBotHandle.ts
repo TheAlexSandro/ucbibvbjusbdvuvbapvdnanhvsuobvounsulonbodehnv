@@ -81,11 +81,13 @@ export class UserBotHandle {
 
       if (
         msg.text.includes("Couldn't join the game") ||
-        msg.text.includes("Tidak dapat bergabung")
+        msg.text.includes("Tidak dapat bergabung") ||
+        msg.text.includes("Anda baru saja keluar") ||
+        msg.text.includes("You just")
       ) {
         Utils.sendMessageToAdmin(
           this.bot,
-          `🤚 <a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> tidak dapat bergabung tepat waktu.`,
+          `🤚 <a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> tidak dapat bergabung.`,
         );
       }
 
@@ -124,7 +126,7 @@ export class UserBotHandle {
           this.bot,
           `<a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the new") || msg.text.includes("baru") ? "sekarang adalah" : "-"} ${match?.[0]}`,
         );
-        UserBots.updateRoleCache(String(fullName), role);
+        UserBots.updateRoleCache(String(this.info.id), String(fullName), role);
       }
 
       if (
@@ -279,7 +281,9 @@ export class UserBotHandle {
 
       if (
         msg.text.includes("The Night Falls") ||
-        msg.text.includes("Malam yang mengerikan")
+        msg.text.includes("Malam yang mengerikan") ||
+        msg.text.includes("It's mob justice time") ||
+        msg.text.includes("Saatnya mafia")
       ) {
         if (!Cache.get(`begins`)) {
           Cache.set(`begins`, true);
@@ -308,7 +312,8 @@ export class UserBotHandle {
       if (
         msg.text.includes("#ADVERTISING") ||
         msg.text.includes("Game over") ||
-        msg.text.includes("Permainan telah berakhir")
+        msg.text.includes("Permainan telah berakhir") ||
+        msg.text.includes("Permainan berakhir")
       ) {
         if (Cache.get(`role`)) {
           UserBots.clearAll();

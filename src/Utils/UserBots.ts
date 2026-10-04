@@ -5,15 +5,22 @@ import type { Bot } from "grammy";
 import { Entity } from "teleproto/define";
 
 export class UserBots {
-  private static getTarget(obj: string) {
-    const parsed = Object.fromEntries(
-      obj.split(",").map((pair: string) => {
-        const [key, value] = pair.split(":");
-        return [key.trim(), value.trim()];
+  private static getTarget(roleList: string, nameList: string): string[] {
+    const parsedRoles = Object.fromEntries(
+      roleList.split(",").map((pair: string) => {
+        const [id, role] = pair.split(":");
+        return [id.trim(), role.trim()];
       }),
     );
+    const parsedNames = Object.fromEntries(
+      nameList.split(",").map((pair: string) => {
+        const [id, name] = pair.split(":");
+        return [id.trim(), name.trim()];
+      }),
+    );
+
     const excluded = [
-      //EN
+      // EN
       "doctor",
       "don",
       "hooker",
@@ -26,7 +33,7 @@ export class UserBots {
       "sergeant",
       "journalist",
       "bodyguard",
-      //ID
+      // ID
       "dokter",
       "boss lana",
       "pelacur",
@@ -40,9 +47,14 @@ export class UserBots {
       "wartawan",
       "pengawal",
     ];
-    const result = Object.entries(parsed)
-      .filter(([, value]) => !excluded.includes(value.toLocaleLowerCase()))
-      .map(([key]) => key);
+
+    const result = Object.entries(parsedRoles)
+      .filter(([, value]) => {
+        const v = value.toLocaleLowerCase();
+        return !excluded.some((ex) => v.includes(ex));
+      })
+      .map(([id]) => parsedNames[id])
+      .filter(Boolean);
 
     return result;
   }
@@ -74,17 +86,19 @@ export class UserBots {
     if (!Cache.get(`begins`)) return;
     if (!Cache.get(`night`)) return;
     const getRoleList = String(Cache.get(`role`));
-    if (
-      !(getRoleList.includes("doctor") || getRoleList.includes("dokter")) &&
-      (!getRoleList.includes("don") ||
-        !getRoleList.includes("maniac") ||
-        !getRoleList.includes("boss lana") ||
-        !getRoleList.includes("gila"))
-    )
-      return;
+    const getNameList = String(Cache.get(`roleNames`));
+
+    const hasDoctor =
+      getRoleList.includes("doctor") || getRoleList.includes("dokter");
+    const hasDon =
+      getRoleList.includes("don") || getRoleList.includes("boss lana");
+    const hasManiac =
+      getRoleList.includes("maniac") || getRoleList.includes("gila");
+
+    if (!hasDoctor && !hasDon && !hasManiac) return;
     let target;
     if (!Cache.get(`target`)) {
-      target = this.getTarget(getRoleList)[0];
+      target = this.getTarget(getRoleList, getNameList)[0];
       Cache.set(`target`, target);
     } else {
       target = String(Cache.get(`target`));
@@ -94,8 +108,7 @@ export class UserBots {
 
     // --- DETECTIVE ---
     if (
-      (msg.text.includes("act") ||
-        msg.text.includes("bertindak")) &&
+      (msg.text.includes("act") || msg.text.includes("bertindak")) &&
       Cache.get(`afkmodeDet`)
     ) {
       const btn = buttons.find((b: any) => {
@@ -283,26 +296,37 @@ export class UserBots {
     }
   }
 
-  static updateRoleCache(fullName: string, role: string | undefined) {
+  static updateRoleCache(
+    userId: string,
+    fullName: string,
+    role: string | undefined,
+  ) {
     let roleUpdateQueue: Promise<void> = Promise.resolve();
     roleUpdateQueue = roleUpdateQueue.then(() => {
       const getRoleList = Cache.get(`role`);
-
+      const roleRegex = new RegExp(`(^|,)${userId}:[^,]*`);
       if (!getRoleList) {
-        Cache.set(`role`, `${fullName}:${role}`);
-        return;
+        Cache.set(`role`, `${userId}:${role}`);
+      } else if (roleRegex.test(String(getRoleList))) {
+        Cache.set(
+          `role`,
+          String(getRoleList).replace(roleRegex, `$1${userId}:${role}`),
+        );
+      } else {
+        Cache.set(`role`, `${getRoleList},${userId}:${role}`);
       }
 
-      const regex = new RegExp(`(^|,)${fullName}:[^,]*`);
-
-      if (regex.test(String(getRoleList))) {
-        const updated = String(getRoleList).replace(
-          regex,
-          `$1${fullName}:${role}`,
+      const getNameList = Cache.get(`roleNames`);
+      const nameRegex = new RegExp(`(^|,)${userId}:[^,]*`);
+      if (!getNameList) {
+        Cache.set(`roleNames`, `${userId}:${fullName}`);
+      } else if (nameRegex.test(String(getNameList))) {
+        Cache.set(
+          `roleNames`,
+          String(getNameList).replace(nameRegex, `$1${userId}:${fullName}`),
         );
-        Cache.set(`role`, updated);
       } else {
-        Cache.set(`role`, `${getRoleList},${fullName}:${role}`);
+        Cache.set(`roleNames`, `${getNameList},${userId}:${fullName}`);
       }
     });
     return roleUpdateQueue;
@@ -366,6 +390,7 @@ export class UserBots {
         Cache.set(`join`, "direct");
       }
     }
+    Cache.del(`roleNames`);
     Cache.del(`dead`);
     Cache.del(`hasSent`);
     Cache.del(`hasSentGame`);
