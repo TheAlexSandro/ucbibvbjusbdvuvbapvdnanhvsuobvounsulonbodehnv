@@ -76,6 +76,9 @@ export class UserBots {
           }),
         )
         .catch((err) => {
+          Utils.writeLog(
+            `[CLICK ERR] ${err instanceof Error ? err.message : String(err)}`,
+          );
           const isTimeout =
             err?.errorMessage === "BOT_RESPONSE_TIMEOUT" ||
             err?.message?.includes("BotResponseTimeoutError");
@@ -117,16 +120,10 @@ export class UserBots {
 
     // --- DETECTIVE ---
     if (
-      (msg.text.includes("act") || msg.text.includes("bertindak")) &&
+      (msg.text.includes("act!") || msg.text.includes("bertindak!")) &&
       Cache.get(`afkmodeDet`)
     ) {
-      const btn = buttons.find((b: any) => {
-        return (
-          (b.text?.includes("Check") || b.text?.includes("Memeriksa")) &&
-          b.type?.className === "InlineButtonTypeCallback" &&
-          b.type?.data
-        );
-      });
+      const btn = buttons[0];
       if (btn) this.clickButton(client, msg, btn);
     }
 
