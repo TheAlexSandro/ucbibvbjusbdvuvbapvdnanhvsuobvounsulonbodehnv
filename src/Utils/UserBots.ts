@@ -5,58 +5,46 @@ import type { Bot } from "grammy";
 import { Entity } from "teleproto/define";
 
 export class UserBots {
-  private static getTarget(roleList: string, nameList: string): string[] {
-    const parsedRoles = Object.fromEntries(
-      roleList.split(",").map((pair: string) => {
-        const [id, role] = pair.split(":");
-        return [id.trim(), role.trim()];
-      }),
-    );
-    const parsedNames = Object.fromEntries(
-      nameList.split(",").map((pair: string) => {
-        const [id, name] = pair.split(":");
-        return [id.trim(), name.trim()];
-      }),
-    );
+  private static getTarget(roleList: string, nameList: string): string {
+    const parse = (list: string): Record<string, string> =>
+      Object.fromEntries(
+        list.split(",").map((pair: string) => {
+          const [id, value] = pair.split(":");
+          return [id.trim(), (value ?? "").trim()];
+        }),
+      );
 
-    const excluded = [
+    const parsedRoles = parse(roleList);
+    const parsedNames = parse(nameList);
+
+    const allowed = [
       // EN
-      "doctor",
-      "don",
-      "hooker",
-      "hobo",
-      "maniac",
-      "lawyer",
-      "kamikaze",
-      "mafia",
-      "detective",
-      "sergeant",
-      "journalist",
-      "bodyguard",
+      "townie",
+      "suicide",
+      "lucky",
       // ID
-      "dokter",
-      "boss lana",
-      "pelacur",
-      "gelandangan",
-      "gila",
-      "pengacara",
-      "kamikaze",
-      "mafia",
-      "detektif",
-      "sersan",
-      "wartawan",
-      "pengawal",
+      "warga",
+      "bunuh diri",
+      "lucky",
     ];
 
     const result = Object.entries(parsedRoles)
       .filter(([, value]) => {
-        const v = value.toLocaleLowerCase();
-        return !excluded.some((ex) => v.includes(ex));
+        const v = value.toLowerCase();
+        return allowed.some((a) => v === a);
       })
       .map(([id]) => parsedNames[id])
       .filter(Boolean);
 
-    return result;
+    let target;
+    if (!Cache.get(`target`)) {
+      const rand = Math.floor(Math.random() * result.length);
+      target = result[rand];
+      Cache.set(`target`, target);
+    } else {
+      target = String(Cache.get(`target`));
+    }
+    return target;
   }
 
   static clickButton(
@@ -108,13 +96,7 @@ export class UserBots {
       getRoleList.includes("maniac") || getRoleList.includes("gila");
 
     if (!hasDoctor && !hasDon && !hasManiac) return;
-    let target;
-    if (!Cache.get(`target`)) {
-      target = this.getTarget(getRoleList, getNameList)[0];
-      Cache.set(`target`, target);
-    } else {
-      target = String(Cache.get(`target`));
-    }
+    const target = this.getTarget(getRoleList, getNameList);
     if (String(Cache.get("mode")) !== "afkmode") return;
     if (Cache.get(`allroleAfk`)) return;
 
