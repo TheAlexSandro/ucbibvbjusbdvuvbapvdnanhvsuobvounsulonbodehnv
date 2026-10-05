@@ -334,6 +334,9 @@ export class UserBotHandle {
       msg.isPrivate &&
       Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
     ) {
+      if (String(Cache.get("mode")) !== "afkmode") return;
+      if (Cache.get(`allroleAfk`)) return;
+
       if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
         const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
         const callbackButtons = buttons.filter((b: any) => {
