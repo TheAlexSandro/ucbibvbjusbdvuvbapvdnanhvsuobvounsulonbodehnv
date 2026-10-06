@@ -117,8 +117,16 @@ const handleRegistration = (msg: any, t0: number) => {
 
   slots.map((slot) => {
     if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) return;
+    const tSend = performance.now();
+
     slot.client
       .sendMessage(slot.mafiaEntity, { message: `/start ${startParam}` })
+      .then(() => {
+        const done = performance.now();
+        log(
+          `[lat TS] join OK [${slot.userId}] dispatch=${(tSend - t0).toFixed(1)}ms rtt=${(done - tSend).toFixed(1)}ms total=${(done - t0).toFixed(1)}ms`,
+        );
+      })
       .catch(() => {});
   });
 };
