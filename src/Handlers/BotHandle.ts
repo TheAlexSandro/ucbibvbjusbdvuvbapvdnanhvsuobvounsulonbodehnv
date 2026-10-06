@@ -1,6 +1,6 @@
 import { Bot, Context, InputFile } from "grammy";
 import { Utils } from "../Utils/Utils";
-import { TelegramClient } from "teleproto";
+import type { WorkerManager } from "../Workers/WorkerManager";
 import { markup, btn } from "../Utils/Buttons";
 import { Cache } from "../Utils/Caches";
 import { Database } from "../prisma/Database";
@@ -11,12 +11,12 @@ const admins = String(process.env["ADMIN"]).split(",");
 export class BotHandle {
   bot: Bot;
   ctx: Context;
-  clients: TelegramClient[];
+  manager: WorkerManager;
 
-  constructor(bot: Bot, ctx: Context, clients: TelegramClient[]) {
+  constructor(bot: Bot, ctx: Context, manager: WorkerManager) {
     this.bot = bot;
     this.ctx = ctx;
-    this.clients = clients;
+    this.manager = manager;
   }
 
   private static readonly ROLES = [
@@ -177,46 +177,24 @@ export class BotHandle {
             var pesan = `🤖 <b>Daftar Bot</b>`;
             pesan += `\nKelola userbot mana yang ingin Anda gunakan atau matikan.`;
 
-            const keyb: any[] = [];
-            let index = 0;
+            const keyb = this.manager
+              .getUsers()
+              .map((u) => [
+                btn.text(
+                  `${u.fullName} ${disabledSet.has(u.id) ? "❌" : "✅"}`,
+                  `userbot_${u.id}`,
+                ),
+              ]);
 
-            const processNext = () => {
-              if (index >= this.clients.length) {
-                this.ctx.api.editMessageText(
-                  result.chat.id,
-                  result.message_id,
-                  pesan,
-                  {
-                    parse_mode: "HTML",
-                    reply_markup: { inline_keyboard: keyb },
-                  },
-                );
-                return;
-              }
-              const client = this.clients[index];
-
-              client
-                .getMe()
-                .then((me) => {
-                  const isDisabled = disabledSet.has(me.id.toString());
-
-                  keyb.push([
-                    btn.text(
-                      `${me.lastName ? `${me.firstName} ${me.lastName}` : me.firstName} ${!isDisabled ? "✅" : "❌"}`,
-                      `userbot_${String(me.id)}`,
-                    ),
-                  ]);
-
-                  index++;
-                  processNext();
-                })
-                .catch(() => {
-                  index++;
-                  processNext();
-                });
-            };
-
-            processNext();
+            this.ctx.api.editMessageText(
+              result.chat.id,
+              result.message_id,
+              pesan,
+              {
+                parse_mode: "HTML",
+                reply_markup: { inline_keyboard: keyb },
+              },
+            );
           });
       });
       return;
@@ -389,49 +367,41 @@ export class BotHandle {
       this.ctx
         .reply(`⏳ Mencari informasi dari salah satu userbot...`)
         .then((message_result) => {
-          const processNext = (i: number): void => {
-            if (i >= this.clients.length) {
-              this.ctx.api.editMessageText(
-                message_result.chat.id,
-                message_result.message_id,
-                `❌ <b>Gagal!</b>\nTidak ada userbot yang bisa mendapatkan info grup tersebut, silahkan periksa:\n• Apakah grup tersebut ada?\n• Jika privat, Anda harus menambahkan salah 1 userbot ke sana.`,
-                { parse_mode: "HTML" },
-              );
-              return;
-            }
+          const groupText = String(this.ctx.message?.text!);
+          this.manager
+            .firstSuccess((ref) => this.manager.getGroupInfo(ref, groupText))
+            .then(
+              async (entity) => {
+                Cache.del(`session_addgc_${chat?.id}`);
+                const groupId = `-100${entity.id}`;
 
-            this.clients[i]
-              .getEntity(String(this.ctx.message?.text!))
-              .then((entity: any) => {
-                return this.clients[i].getParticipants(entity).then((prtc) => {
-                  Cache.del(`session_addgc_${chat?.id}`);
-                  const groupId = `-100${String(entity.id)}`;
+                let pesan = `✅ <b>Ditambahkan</b>`;
+                pesan += `\nGrup telah ditambahkan, berikut informasinya:`;
+                pesan += `\n\nNama: ${entity.title ?? "-"}`;
+                pesan += `\nID: <code>${groupId}</code>`;
+                pesan += `\nUsername: ${entity.username ? `@${entity.username}` : "-"}`;
+                pesan += `\nPeserta: ${entity.total ?? "-"}`;
 
-                  let pesan = `✅ <b>Ditambahkan</b>`;
-                  pesan += `\nGrup telah ditambahkan, berikut informasinya:`;
-                  pesan += `\n\nNama: ${entity.title ?? "-"}`;
-                  pesan += `\nID: <code>${groupId}</code>`;
-                  pesan += `\nUsername: ${entity.username ? `@${entity.username}` : "-"}`;
-                  pesan += `\nPeserta: ${prtc.total ?? "-"}`;
-
-                  Database.orm.public.Group.create({
-                    GroupId: groupId,
-                    GroupName: entity.title,
-                  });
-                  this.ctx.api.editMessageText(
-                    message_result.chat.id,
-                    message_result.message_id,
-                    pesan,
-                    { parse_mode: "HTML" },
-                  );
+                await Database.orm.public.Group.create({
+                  GroupId: groupId,
+                  GroupName: String(entity.title),
                 });
-              })
-              .catch(() => {
-                processNext(i + 1);
-              });
-          };
-
-          processNext(0);
+                this.ctx.api.editMessageText(
+                  message_result.chat.id,
+                  message_result.message_id,
+                  pesan,
+                  { parse_mode: "HTML" },
+                );
+              },
+              () => {
+                this.ctx.api.editMessageText(
+                  message_result.chat.id,
+                  message_result.message_id,
+                  `❌ <b>Gagal!</b>\nTidak ada userbot yang bisa mendapatkan info grup tersebut, silahkan periksa:\n• Apakah grup tersebut ada?\n• Jika privat, Anda harus menambahkan salah 1 userbot ke sana.`,
+                  { parse_mode: "HTML" },
+                );
+              },
+            );
         });
       return;
     }
@@ -690,31 +660,22 @@ export class BotHandle {
 
                   const groupId = dbResult[groupIndex].GroupId;
 
-                  const tryClient = (clientIndex: number): void => {
-                    if (clientIndex >= this.clients.length) {
+                  this.manager
+                    .firstSuccess((ref) =>
+                      this.manager.getGroupInfo(ref, groupId),
+                    )
+                    .then((info) =>
+                      Database.orm.public.Group.where({
+                        GroupId: groupId,
+                      }).update({ GroupName: String(info.title) }),
+                    )
+                    .then(() => {
+                      successCount++;
+                    })
+                    .catch(() => {
                       failCount++;
-                      processGroup(groupIndex + 1);
-                      return;
-                    }
-
-                    this.clients[clientIndex]
-                      .getEntity(groupId)
-                      .then((entity: any) => {
-                        return Database.orm.public.Group.where({
-                          GroupId: groupId,
-                        })
-                          .update({ GroupName: String(entity.title) })
-                          .then(() => {
-                            successCount++;
-                            processGroup(groupIndex + 1);
-                          });
-                      })
-                      .catch(() => {
-                        tryClient(clientIndex + 1);
-                      });
-                  };
-
-                  tryClient(0);
+                    })
+                    .finally(() => processGroup(groupIndex + 1));
                 };
 
                 processGroup(0);
@@ -812,8 +773,8 @@ export class BotHandle {
           Database.orm.public.DisabledUserBot.select("UserId")
             .all()
             .then((db_result) => {
-              db_result.map((id) => {
-                Cache.set(`userbot_${id}_disabled`, true);
+              db_result.forEach((row) => {
+                Cache.set(`userbot_${row.UserId}_disabled`, true);
               });
 
               return Database.orm.public.Group.where({ GroupId: target })
@@ -822,54 +783,36 @@ export class BotHandle {
                 .then((db_result) => {
                   Cache.set(`groupName`, db_result?.GroupName);
 
-                  const processNext = (i: number): void => {
-                    if (i >= this.clients.length) {
-                      var pesan = `✅ <b>Perintah Terkirim!</b>`;
-                      pesan += `\nPerintah /next telah dikirim ke grup tujuan - ${db_result?.GroupName}`;
-                      let keyb: any[] = [];
-                      keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
-
-                      this.ctx.deleteMessage();
-                      Utils.sendMessageToAdmin(this.bot, pesan, keyb);
-                      return;
+                  const sendAll = async () => {
+                    for (const ref of this.manager.getRefs()) {
+                      const user = this.manager.getUser(ref.userId);
+                      if (!user) continue;
+                      if (Cache.get(`userbot_${user.id}_disabled`)) continue;
+                      try {
+                        await this.manager.sendMessage(ref, target, "/next");
+                      } catch (err: any) {
+                        const errMsg = String(err?.message).includes(
+                          `You're banned from sending messages in supergroups/channels.`,
+                        )
+                          ? `userbot mungkin dibatasi Telegram untuk mengirim pesan. Userbot akan mencoba bergabung saat ada pendaftaran dimulai.`
+                          : `userbot mungkin diblokir atau belum bergabung dalam grup.`;
+                        Utils.sendMessageToAdmin(
+                          this.bot,
+                          `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(user.id)}'>${user.fullName}</a> gagal mengirim perintah /next ke grup, ${errMsg}`,
+                        );
+                      }
                     }
 
-                    this.clients[i]
-                      .getMe()
-                      .then((entity) => {
-                        return this.clients[i]
-                          .getEntity(target)
-                          .then((chat_result) => {
-                            const isDisabled = Cache.get(
-                              `userbot_${String(entity.id)}_disabled`,
-                            );
-                            if (isDisabled) return;
-                            return this.clients[i].sendMessage(chat_result, {
-                              message: "/next",
-                            });
-                          })
-                          .catch((err) => {
-                            const fullName = entity.lastName
-                              ? `${entity.firstName} ${entity.lastName}`
-                              : entity.firstName;
-                            const errMsg = err.message.includes(
-                              `You're banned from sending messages in supergroups/channels.`,
-                            )
-                              ? `userbot mungkin dibatasi Telegram untuk mengirim pesan. Userbot akan mencoba bergabung saat ada pendaftaran dimulai.`
-                              : `userbot mungkin diblokir atau belum bergabung dalam grup.`;
+                    var pesan = `✅ <b>Perintah Terkirim!</b>`;
+                    pesan += `\nPerintah /next telah dikirim ke grup tujuan - ${db_result?.GroupName}`;
+                    let keyb: any[] = [];
+                    keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
 
-                            Utils.sendMessageToAdmin(
-                              this.bot,
-                              `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(entity.id)}'>${fullName}</a> gagal mengirim perintah /next ke grup, ${errMsg}`,
-                            );
-                          });
-                      })
-                      .finally(() => {
-                        processNext(i + 1);
-                      });
+                    this.ctx.deleteMessage();
+                    Utils.sendMessageToAdmin(this.bot, pesan, keyb);
                   };
 
-                  processNext(0);
+                  sendAll();
                 });
             });
         });

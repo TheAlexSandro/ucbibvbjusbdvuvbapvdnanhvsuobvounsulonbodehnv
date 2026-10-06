@@ -2,3 +2,5 @@ node_modules
 dist
 .env*
 src/Test
+.cp.env
+src/check.ts

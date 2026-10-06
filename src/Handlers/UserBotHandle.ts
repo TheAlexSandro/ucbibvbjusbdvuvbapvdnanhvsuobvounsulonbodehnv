@@ -1,366 +1,281 @@
-import { NewMessageEvent } from "teleproto/events/index.js";
-import { Api, TelegramClient } from "teleproto";
+import type { Bot } from "grammy";
 import { Cache } from "../Utils/Caches";
 import { Utils } from "../Utils/Utils";
-import type { Bot } from "grammy";
-import { UserBots } from "../Utils/UserBots";
+import { UserBots, type ClickCtx } from "../Utils/UserBots";
+import type {
+  ClientRef,
+  MessagePayload,
+  UserInfo,
+  WorkerManager,
+} from "../Workers/WorkerManager";
+
+const has = (text: string, ...phrases: string[]) =>
+  phrases.some((p) => text.includes(p));
+
+const isCallback = (b: { type?: { className?: string; data?: number[] } }) =>
+  b.type?.className === "InlineButtonTypeCallback" && !!b.type?.data;
+
+const EMOJI_ROLE_REGEX =
+  /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Modifier}\u{200D}\u{FE0F}\u{FE0E}]+\s*([A-Za-z]+(?:\s[A-Za-z]+)*)/u;
 
 export class UserBotHandle {
-  event: NewMessageEvent;
-  client: TelegramClient;
-  bot: Bot;
-  clients: TelegramClient[];
-  info: Api.User;
-  infos: Api.User[];
+  private readonly info: UserInfo;
+  private readonly ctx: ClickCtx;
+  private readonly mafiaBotId = Number(process.env["MAFIA_BOT_ID"]);
 
   constructor(
-    evn: NewMessageEvent,
-    client: TelegramClient,
-    bot: Bot,
-    clients: TelegramClient[],
-    info: Api.User,
-    infos: Api.User[],
+    private readonly msg: MessagePayload,
+    ref: ClientRef,
+    manager: WorkerManager,
+    private readonly bot: Bot,
   ) {
-    this.event = evn;
-    this.client = client;
-    this.bot = bot;
-    this.clients = clients;
-    this.info = info;
-    this.infos = infos;
+    this.info = manager.getUser(ref.userId) ?? {
+      id: ref.userId,
+      firstName: ref.userId,
+      fullName: ref.userId,
+    };
+    this.ctx = { manager, ref };
+  }
+
+  private get fromMafiaBot() {
+    return Number(this.msg.senderId) === this.mafiaBotId;
+  }
+
+  private get isDisabled() {
+    return Boolean(Cache.get(`userbot_${this.info.id}_disabled`));
+  }
+
+  private notifyAdmin(text: string) {
+    Utils.sendMessageToAdmin(this.bot, text);
+  }
+
+  private get mention() {
+    return `<a href='tg://user?id=${Number(this.info.id)}'>${this.info.fullName}</a>`;
   }
 
   public handle() {
-    const isDisabled = Cache.get(`userbot_${this.info.id}_disabled`);
-    if (isDisabled) return;
+    if (this.isDisabled || this.msg.out || !this.fromMafiaBot) return;
 
-    const msg = this.event.message;
+    if (String(this.msg.chatId) === String(Cache.get(`groupTarget`))) {
+      this.handleGroupMessage();
+    }
+    if (this.msg.isPrivate) {
+      this.handlePrivateMessage();
+    }
+  }
 
-    if (msg.out) return;
-    if (
-      msg.isPrivate &&
-      Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
-    ) {
-      const fullName = this.info.lastName
-        ? `${this.info.firstName} ${this.info.lastName}`
-        : this.info.firstName;
+  private handleGroupMessage() {
+    const { text } = this.msg;
 
-      if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
-        const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
-        const targetButton = buttons.find((b: any) => {
-          return (
-            (b.text?.includes("Join") || b.text?.includes("Gabung")) &&
-            b.type?.className === "InlineButtonTypeCallback" &&
-            b.type?.data
-          );
-        });
+    this.handleLynchConfirm();
+    this.trackTotal(text);
+    this.trackDay(text);
 
-        if (
-          (msg.text?.includes("Attention!") ||
-            msg.text?.includes("Perhatian!")) &&
-          targetButton &&
-          String(Cache.get(`join`)) === "next"
-        ) {
-          this.client
-            .invoke(
-              new Api.messages.GetBotCallbackAnswer({
-                peer: msg.peerId,
-                msgId: msg.id,
-                data: (targetButton as any).type.data,
-              }),
-            )
-            .catch(() => {
-              Utils.sendMessageToAdmin(
-                this.bot,
-                `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> gagal bergabung, userbot mungkin dibatasi di grup atau terkena limit.`,
-              );
-            });
-        }
-
-        UserBots.handleAfkMode(this.client, msg, buttons);
-      }
-
-      if (
-        msg.text.includes("Couldn't join the game") ||
-        msg.text.includes("Tidak dapat bergabung") ||
-        msg.text.includes("Anda baru saja keluar") ||
-        msg.text.includes("You just")
-      ) {
-        Utils.sendMessageToAdmin(
-          this.bot,
-          `🤚 <a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> tidak dapat bergabung.`,
-        );
-      }
-
-      if (
-        msg.text.includes("You're") ||
-        msg.text.includes("You are") ||
-        msg.text.includes("is a new") ||
-        msg.text.includes("Anda adalah") ||
-        msg.text.includes("Anda sekarang") ||
-        msg.text.includes("baru")
-      ) {
-        if (
-          msg.text.includes("you're already in the game") ||
-          msg.text.includes("Anda sudah dalam game") ||
-          msg.text.includes("Anda baru saja keluar") ||
-          msg.text.includes("You just")
-        )
-          return;
-
-        const match = msg.text.match(
-          /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Modifier}\u{200D}\u{FE0F}\u{FE0E}]+\s*([A-Za-z]+(?:\s[A-Za-z]+)*)/u,
-        );
-        const role = match?.[1]?.toLowerCase();
-        Cache.set(`roleEmot${role}`, match?.[0]);
-
-        if (role === "doctor" || role === "dokter") {
-          Cache.set(`doctor`, fullName);
-        }
-        if (
-          (msg.text.includes("is a new") || msg.text.includes("Lana baru")) &&
-          !msg.text.includes(String(fullName))
-        )
-          return;
-
-        Utils.sendMessageToAdmin(
-          this.bot,
-          `<a href='tg://user?id=${Number(this.info.id)}'>${fullName}</a> ${msg.text.includes("is a new") || msg.text.includes("You are the new") || msg.text.includes("baru") ? "sekarang adalah" : "-"} ${match?.[0]}`,
-        );
-        UserBots.updateRoleCache(String(this.info.id), String(fullName), role);
-      }
-
-      if (
-        msg.text.includes("You have been killed") ||
-        msg.text.includes("Congrats on winning") ||
-        msg.text.includes("You stayed idle") ||
-        msg.text.includes("Anda dibunuh") ||
-        msg.text.includes("Selamat, Anda telah") ||
-        msg.text.includes("Anda tetap menganggur")
-      ) {
-        UserBots.incrementDead(
-          1,
-          String(fullName),
-          String(this.info.id),
-          this.bot,
-          msg.text.includes("You have been killed") ||
-            msg.text.includes("Anda dibunuh")
-            ? "killed"
-            : msg.text.includes("Congrats on winning") ||
-                msg.text.includes("Selamat, Anda telah")
-              ? "lynch"
-              : "idle",
-        );
-      }
-
-      if (
-        msg.text.includes("patched you up") ||
-        msg.text.includes("menyembukan Anda")
-      ) {
-        UserBots.incrementDead(
-          -1,
-          String(fullName),
-          String(this.info.id),
-          this.bot,
-          null,
-        );
-      }
+    if (has(text, "The game begins", "Permainan dimulai")) {
+      this.markGameBegins();
+      if (Cache.get(`join`) && !Cache.get(`continu`)) Cache.del(`join`);
     }
 
     if (
-      String(msg.chatId) === String(Cache.get(`groupTarget`)) &&
-      Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
+      has(
+        text,
+        "The Night Falls",
+        "Malam yang mengerikan",
+        "It's mob justice time",
+        "Saatnya mafia",
+      )
     ) {
-      if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
-        const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
-
-        if (
-          (msg.text.includes("Registration") ||
-            msg.text.includes("Pendaftaran")) &&
-          ["direct", "next"].includes(String(Cache.get(`join`)))
-        ) {
-          if (Cache.get(`registrationHandled`)) return;
-          Cache.set(`registrationHandled`, true, 60);
-
-          const targetButton = buttons.find((b: any) => {
-            return (
-              (b.text?.includes("Join") || b.text?.includes("Gabung")) &&
-              b.type?.className === "InlineButtonTypeUrl" &&
-              b.type?.url
-            );
-          });
-
-          if (targetButton) {
-            const url = (targetButton as any).type.url;
-            const parsed = new URL(url);
-            const startParam = String(parsed.searchParams.get("start"));
-
-            this.clients.forEach((client, i) => {
-              UserBots.getMafiaEntity(
-                this.client,
-                String(this.infos[i].id),
-                (entity) => {
-                  const isDisabled = Cache.get(
-                    `userbot_${String(this.infos[i].id)}_disabled`,
-                  );
-                  if (isDisabled) return;
-                  client
-                    .invoke(
-                      new Api.messages.StartBot({
-                        bot: entity,
-                        peer: entity,
-                        randomId: BigInt(
-                          Math.floor(Math.random() * 1e18),
-                        ) as any,
-                        startParam,
-                      }),
-                    )
-                    .catch(() => {});
-                },
-              );
-            });
-          }
-          return;
-        }
-
-        if (
-          (msg.text.includes("Are you sure about lynching") ||
-            msg.text.includes("Anda yakin ingin menggantung")) &&
-          msg.text.includes(String(Cache.get(`target`))) &&
-          Cache.get(`useVote`) === "yes"
-        ) {
-          const targetButton = buttons.find((b: any) => {
-            return (
-              b.text?.includes("👎") &&
-              b.type?.className === "InlineButtonTypeCallback" &&
-              b.type?.data
-            );
-          });
-          if (targetButton) {
-            UserBots.clickButton(this.client, msg, targetButton);
-          }
-        }
-      }
-
-      const match = msg.text.match(/Total:\s*(\d+)/);
-      const total = match ? Number(match[1]) : 0;
-      if (!Cache.get(`total`)) {
-        Cache.set(`total`, total);
-      }
-
-      const matchDay = msg.text.match(/(?:Day|Hari)\s+(\d+)/i);
-      const dayNumber = matchDay ? Number(matchDay[1]) : null;
-      if (dayNumber !== Number(Cache.get(`dayNow`) ?? 0)) {
-        Cache.set(`dayNow`, dayNumber);
-      }
-      if (dayNumber === Number(Cache.get(`afkmodeDur`))) {
-        if (!Cache.get(`hasSent`)) {
-          Cache.set(`hasSent`, true);
-          if (!Cache.get(`continu`)) {
-            UserBots.clearSmode();
-          }
-          Utils.sendMessageToAdmin(
-            this.bot,
-            `⚠️ <b>Perhatian!</b>\nSuck mode telah mencapai durasi yang ditentukan - ${dayNumber} hari.${Cache.get(`continu`) ? "\n🔁 Continuous sedang aktif, userbot tidak akan berhenti." : ""}`,
-          );
-        }
-      }
-
-      if (
-        msg.text.includes("The game begins") ||
-        msg.text.includes("Permainan dimulai")
-      ) {
-        if (!Cache.get(`begins`)) {
-          Cache.set(`begins`, true);
-          Cache.del(`registrationHandled`);
-          Cache.del(`hasSentGame`);
-        }
-        if (Cache.get(`join`) && !Cache.get(`continu`)) {
-          Cache.del(`join`);
-        }
-      }
-
-      if (
-        msg.text.includes("The Night Falls") ||
-        msg.text.includes("Malam yang mengerikan") ||
-        msg.text.includes("It's mob justice time") ||
-        msg.text.includes("Saatnya mafia")
-      ) {
-        if (!Cache.get(`begins`)) {
-          Cache.set(`begins`, true);
-          Cache.del(`registrationHandled`);
-          Cache.del(`hasSentGame`);
-        }
-        if (!Cache.get(`night`)) {
-          Cache.set(`night`, true);
-        }
-        Cache.set(`roleSepaDon`, true);
-        Cache.del(`hasSent`);
-        Cache.del(`hasSentWarnKill`);
-        const getUbot = String(process.env["USERBOT"]).split(",");
-        getUbot.map((id: string) => {
-          Cache.del(`hasSentKill_${id}`);
-        });
-      }
-
-      if (
-        msg.text.includes("Game canceled") ||
-        msg.text.includes("Permainan dibatalkan")
-      ) {
-        UserBots.clearAll("1");
-      }
-
-      if (
-        msg.text.includes("#ADVERTISING") ||
-        msg.text.includes("Game over") ||
-        msg.text.includes("Permainan telah berakhir") ||
-        msg.text.includes("Permainan berakhir")
-      ) {
-        if (Cache.get(`role`)) {
-          UserBots.clearAll();
-        }
-      }
+      this.markGameBegins();
+      Cache.set(`night`, true);
+      Cache.set(`roleSepaDon`, true);
+      Cache.del(`hasSent`);
+      Cache.del(`hasSentWarnKill`);
+      String(process.env["USERBOT"])
+        .split(",")
+        .forEach((id) => Cache.del(`hasSentKill_${id}`));
     }
-    return;
+
+    if (has(text, "Game canceled", "Permainan dibatalkan")) {
+      UserBots.clearAll("1");
+    }
+
+    if (
+      has(
+        text,
+        "#ADVERTISING",
+        "Game over",
+        "Permainan telah berakhir",
+        "Permainan berakhir",
+      ) &&
+      Cache.get(`role`)
+    ) {
+      UserBots.clearAll();
+    }
+  }
+
+  private markGameBegins() {
+    if (Cache.get(`begins`)) return;
+    Cache.set(`begins`, true);
+    Cache.del(`registrationHandled`);
+    Cache.del(`hasSentGame`);
+  }
+
+  private handleLynchConfirm() {
+    const { text, buttons } = this.msg;
+    if (!buttons) return;
+    if (
+      !has(text, "Are you sure about lynching", "Anda yakin ingin menggantung")
+    )
+      return;
+    if (!text.includes(String(Cache.get(`target`)))) return;
+    if (Cache.get(`useVote`) !== "yes") return;
+
+    const btn = buttons.find((b) => b.text?.includes("👎") && isCallback(b));
+    UserBots.clickButton(this.ctx, this.msg, btn);
+  }
+
+  private trackTotal(text: string) {
+    const match = text.match(/Total:\s*(\d+)/);
+    if (!Cache.get(`total`)) Cache.set(`total`, match ? Number(match[1]) : 0);
+  }
+
+  private trackDay(text: string) {
+    const match = text.match(/(?:Day|Hari)\s+(\d+)/i);
+    if (!match) return; // jangan timpa dayNow dengan null
+    const day = Number(match[1]);
+
+    if (day !== Number(Cache.get(`dayNow`) ?? 0)) Cache.set(`dayNow`, day);
+
+    if (day === Number(Cache.get(`afkmodeDur`)) && !Cache.get(`hasSent`)) {
+      Cache.set(`hasSent`, true);
+      const continuous = Cache.get(`continu`);
+      if (!continuous) UserBots.clearSmode();
+      this.notifyAdmin(
+        `⚠️ <b>Perhatian!</b>\nSuck mode telah mencapai durasi yang ditentukan - ${day} hari.${continuous ? "\n🔁 Continuous sedang aktif, userbot tidak akan berhenti." : ""}`,
+      );
+    }
+  }
+
+  private handlePrivateMessage() {
+    const { text, buttons } = this.msg;
+
+    if (buttons) {
+      UserBots.handleAfkMode(this.ctx, this.msg, buttons);
+    }
+
+    if (
+      has(
+        text,
+        "Couldn't join the game",
+        "Tidak dapat bergabung",
+        "Anda baru saja keluar",
+        "You just",
+      )
+    ) {
+      this.notifyAdmin(`🤚 ${this.mention} tidak dapat bergabung.`);
+    }
+
+    if (
+      has(
+        text,
+        "You're",
+        "You are",
+        "is a new",
+        "Anda adalah",
+        "Anda sekarang",
+        "baru",
+      )
+    ) {
+      if (this.handleRoleMessage()) return;
+    }
+
+    if (
+      has(
+        text,
+        "You have been killed",
+        "Congrats on winning",
+        "You stayed idle",
+        "Anda dibunuh",
+        "Selamat, Anda telah",
+        "Anda tetap menganggur",
+      )
+    ) {
+      const type = has(text, "You have been killed", "Anda dibunuh")
+        ? "killed"
+        : has(text, "Congrats on winning", "Selamat, Anda telah")
+          ? "lynch"
+          : "idle";
+      this.dead(1, type);
+    }
+
+    if (has(text, "patched you up", "menyembukan Anda")) {
+      this.dead(-1, null);
+    }
+  }
+
+  private dead(delta: number, type: "killed" | "lynch" | "idle" | null) {
+    UserBots.incrementDead(
+      delta,
+      this.info.fullName,
+      this.info.id,
+      this.bot,
+      type,
+    );
+  }
+
+  private handleRoleMessage(): boolean {
+    const { text } = this.msg;
+    const fullName = this.info.fullName;
+
+    if (
+      has(
+        text,
+        "you're already in the game",
+        "Anda sudah dalam game",
+        "Anda baru saja keluar",
+        "You just",
+      )
+    )
+      return true;
+
+    const match = text.match(EMOJI_ROLE_REGEX);
+    const role = match?.[1]?.toLowerCase();
+    Cache.set(`roleEmot${role}`, match?.[0]);
+
+    if (role === "doctor" || role === "dokter") Cache.set(`doctor`, fullName);
+
+    if (has(text, "is a new", "Lana baru") && !text.includes(fullName))
+      return true;
+
+    const becomes = has(text, "is a new", "You are the new", "baru")
+      ? "sekarang adalah"
+      : "-";
+    this.notifyAdmin(`${this.mention} ${becomes} ${match?.[0]}`);
+    UserBots.updateRoleCache(this.info.id, fullName, role);
+    return false;
   }
 
   public editedMessageHandle() {
-    const isDisabled = Cache.get(`userbot_${this.info.id}_disabled`);
-    if (isDisabled) return;
+    if (this.isDisabled || this.msg.out) return;
+    if (!this.msg.isPrivate || !this.fromMafiaBot) return;
+    if (String(Cache.get("mode")) !== "afkmode") return;
+    if (Cache.get(`allroleAfk`)) return;
 
-    const msg = this.event.message;
+    const { text, buttons } = this.msg;
+    if (!buttons) return;
 
-    if (msg.out) return;
-    if (
-      msg.isPrivate &&
-      Number(msg.senderId) === Number(process.env["MAFIA_BOT_ID"])
-    ) {
-      if (String(Cache.get("mode")) !== "afkmode") return;
-      if (Cache.get(`allroleAfk`)) return;
+    const doctor = String(Cache.get(`doctor`));
+    const candidates = buttons.filter(
+      (b) => !b.text?.includes(doctor) && isCallback(b),
+    );
+    const pick = candidates[Math.floor(Math.random() * candidates.length)];
 
-      if (msg.replyMarkup && msg.replyMarkup instanceof Api.ReplyInlineMarkup) {
-        const buttons = msg.replyMarkup.rows.flatMap((row) => row.buttons);
-        const callbackButtons = buttons.filter((b: any) => {
-          return (
-            !b.text?.includes(String(Cache.get(`doctor`))) &&
-            b.type?.className === "InlineButtonTypeCallback" &&
-            b.type?.data
-          );
-        });
-        const targetButton =
-          callbackButtons[Math.floor(Math.random() * callbackButtons.length)];
+    const isDetectiveCheck =
+      has(text, "Who will you check", "Siapa yang akan Anda periksa") &&
+      Cache.get(`afkmodeDet`);
 
-        if (
-          (msg.text.includes("Who will you check") ||
-            msg.text.includes("Siapa yang akan Anda periksa")) &&
-          Cache.get(`afkmodeDet`)
-        ) {
-          UserBots.clickButton(this.client, msg, targetButton);
-        }
-
-        if (msg.text.includes("subject") || msg.text.includes("subjek")) {
-          UserBots.clickButton(this.client, msg, targetButton);
-        }
-      }
+    if (isDetectiveCheck || has(text, "subject", "subjek")) {
+      UserBots.clickButton(this.ctx, this.msg, pick);
     }
   }
 }
