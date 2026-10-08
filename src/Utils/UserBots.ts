@@ -69,7 +69,7 @@ export class UserBots {
     if (existing) return String(existing);
 
     const target = pickRandom(candidates);
-    if (!target) return null; // jangan simpan undefined ke cache
+    if (!target) return null;
     Cache.set(`target`, target);
     return target;
   }
@@ -161,10 +161,10 @@ export class UserBots {
       {
         triggers: ["Time to seek the guilty", "Saatnya mencari yang bersalah"],
         enabled: () => String(Cache.get("useVote")) !== "no",
-        pick: () => withTarget() ?? notDoctor()[0],
+        pick: () => withTarget() ?? random(),
       },
-      { triggers: ["Whose glass", "Botol kaca"], pick: random }, // hobo
-      { triggers: ["Who's today's", "Tentang siapa"], pick: random }, // journalist
+      { triggers: ["Whose glass", "Botol kaca"], pick: random },
+      { triggers: ["Who's today's", "Tentang siapa"], pick: random },
       {
         triggers: ["The Mafia is voting", "Mafia memilih korban"],
         pick: withTarget,

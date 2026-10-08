@@ -141,7 +141,7 @@ export class UserBotHandle {
 
   private trackDay(text: string) {
     const match = text.match(/(?:Day|Hari)\s+(\d+)/i);
-    if (!match) return; // jangan timpa dayNow dengan null
+    if (!match) return;
     const day = Number(match[1]);
 
     if (day !== Number(Cache.get(`dayNow`) ?? 0)) Cache.set(`dayNow`, day);
@@ -274,7 +274,7 @@ export class UserBotHandle {
       has(text, "Who will you check", "Siapa yang akan Anda periksa") &&
       Cache.get(`afkmodeDet`);
 
-    if (isDetectiveCheck || has(text, "subject", "subjek")) {
+    if (isDetectiveCheck || has(text, "subject", "Tokoh utama")) {
       UserBots.clickButton(this.ctx, this.msg, pick);
     }
   }
