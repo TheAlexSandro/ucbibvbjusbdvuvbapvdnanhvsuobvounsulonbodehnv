@@ -7,3 +7,28 @@ model Group {
 model DisabledUserBot {
   UserId String @id
 }
+
+model Userbots {
+  UserId String @id
+  Sort Int
+  SessionString String
+  IsActive Boolean
+}
+
+model Administrators {
+  UserId String @id
+  CanAddGroup Boolean @default(false)
+  CanManageGroup Boolean @default(false)
+  CanGetRole Boolean @default(true)
+  CanUseNext Boolean @default(true)
+  CanStartSmode Boolean @default(true)
+  CanManageSmode Boolean @default(false)
+  CanManageUbot Boolean @default(false)
+  CanUseReset Boolean @default(false)
+  CanPromoteUser Boolean @default(false)
+  CanViewLog Boolean @default(false)
+  CanManageLog Boolean @default(false)
+  CanLogin Boolean @default(true)
+  IsHighAdmin Boolean @default(false)
+  Promotor String
+}

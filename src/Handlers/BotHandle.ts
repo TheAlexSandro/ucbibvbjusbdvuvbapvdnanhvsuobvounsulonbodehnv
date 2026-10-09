@@ -7,7 +7,25 @@ import { Database } from "../prisma/Database";
 import { UserBots } from "../Utils/UserBots";
 import fs from "fs/promises";
 
-const admins = String(process.env["ADMIN"]).split(",");
+const PERMS = [
+  ["CanAddGroup", "Can Add Group"],
+  ["CanManageGroup", "Can Manage Group"],
+  ["CanGetRole", "Can Get Role"],
+  ["CanUseNext", "Can Use Next"],
+  ["CanStartSmode", "Can Start Smode"],
+  ["CanManageSmode", "Can Manage Smode"],
+  ["CanManageUbot", "Can Manage Ubot"],
+  ["CanUseReset", "Can Use Reset"],
+  ["CanPromoteUser", "Can Promote User"],
+  ["CanViewLog", "Can View Log"],
+  ["CanManageLog", "Can Manage Log"],
+] as const;
+type PermKey = (typeof PERMS)[number][0];
+type PromoteDraft = {
+  target: string;
+  perms: Partial<Record<PermKey, boolean>>;
+};
+
 export class BotHandle {
   bot: Bot;
   ctx: Context;
@@ -17,6 +35,24 @@ export class BotHandle {
     this.bot = bot;
     this.ctx = ctx;
     this.manager = manager;
+  }
+
+  private buildPromoteKeyboard(
+    admin: Record<PermKey, boolean>,
+    target: string,
+    perms: Partial<Record<PermKey, boolean>>,
+  ) {
+    const keyb = PERMS.map(([key, label]) => [
+      btn.text(
+        `${admin[key] ? "" : "🔒 "}${label} ${perms[key] ? "✅" : "❌"}`,
+        `admin_tgl:${key}_${target}`,
+      ),
+    ]);
+    keyb.push([
+      btn.text(`❌ Batal`, `admin_return_none`),
+      btn.text(`Angkat ➡️`, `admin_promote_${target}`),
+    ]);
+    return keyb;
   }
 
   private static readonly ROLES = [
@@ -43,549 +79,1037 @@ export class BotHandle {
 
   public message() {
     const chat = this.ctx.chat;
-    const isAdmin = admins.find((id: string) => id === String(chat?.id));
+    Database.orm.public.Administrators.where({ UserId: String(chat?.id) })
+      .first()
+      .then((admin) => {
+        if (!admin)
+          return this.ctx.reply(
+            `⚠️ <b>Access Denied!</b>\nYou're not authorized to use this bot.`,
+            { parse_mode: "HTML" },
+          );
 
-    if (!isAdmin)
-      return this.ctx.reply(
-        `⚠️ <b>Access Denied!</b>\nYou're not authorized to use this bot.`,
-        { parse_mode: "HTML" },
-      );
-    var pola = /^\/start$/i;
-    if (pola.exec(this.ctx.message?.text!)) {
-      var pesan = `👋 Halo ${Utils.getName(this.ctx)}, selamat datang di controller! Kelola userbot Anda di sini.`;
-      pesan += `\n\n🕹 <b>Perintah:</b>`;
-      pesan += `\n• /gc - tambahkan grup atau kelola grup yang sudah ada.`;
-      pesan += `\n• /getrole - dapatkan informasi tentang peran userbot.`;
-      pesan += `\n• /next - gunakan perintah ini agar userbot masuk dalam permainan.`;
-      pesan += `\n• /smode - (suck mode) gunakan perintah ini untuk membuat userbot bertahan hingga hari yang ditentukan, <b>salah satu userbot harus memiliki peran dokter</b>.`;
-      pesan += `\n• /ubot - kelola userbot mana yang akan digunakan.`;
-      pesan += `\n• /reset - (berbahaya!) gunakan perintah ini untuk menghapus semua cache.`;
+        var pola = /^\/start$/i;
+        if (pola.exec(this.ctx.message?.text!)) {
+          var pesan = `👋 Halo ${Utils.getName(this.ctx)}, selamat datang di controller! Kelola userbot Anda di sini.`;
+          pesan += `\n\n🕹 <b>Perintah:</b>`;
+          pesan += `\n• /gc - tambahkan grup atau kelola grup yang sudah ada.`;
+          pesan += `\n• /getrole - dapatkan informasi tentang peran userbot.`;
+          pesan += `\n• /next - gunakan perintah ini agar userbot masuk dalam permainan.`;
+          pesan += `\n• /smode - (suck mode) gunakan perintah ini untuk membuat userbot bertahan hingga hari yang ditentukan, <b>salah satu userbot harus memiliki peran dokter</b>.`;
+          pesan += `\n• /ubot - kelola userbot mana yang akan digunakan.`;
+          pesan += `\n• /reset - (berbahaya!) gunakan perintah ini untuk menghapus semua cache.`;
+          pesan += `\n• /admin - kelola administrator.`
+          pesan += `\n• /log - lihat log.`;
 
-      this.ctx.reply(pesan, { parse_mode: "HTML" });
-      return;
-    }
+          this.ctx.reply(pesan, { parse_mode: "HTML" });
+          return;
+        }
 
-    var pola = /^\/log$/i;
-    if (pola.exec(this.ctx.message?.text!)) {
-      const getLog = Cache.get(`log`);
-      let keyb = [];
-      keyb[0] = [btn.text(`🗑 Purge`, `log_purge`)];
-      if (String(getLog).length > 4000) {
-        fs.writeFile("log.txt", String(getLog), "utf-8");
-        this.bot.api.sendDocument(chat?.id!, new InputFile("log.txt"), {
-          reply_markup: markup.inlineKeyboard(keyb),
-        });
-        return;
-      }
-      var pesan = `📝 <b>Log</b>`;
-      pesan += `\n${getLog ? `<code>${getLog}</code>` : "Belum ada apapun."}`;
+        var pola = /^\/admin$/i;
+        if (pola.exec(this.ctx.message?.text!)) {
+          this.ctx.reply(`⏳ Memproses...`).then((message_result) => {
+            var pesan = `👮‍♂️ <b>Pusat Administrator</b>`;
+            pesan += `\nDi sini, Anda dapat menambahkan admin dan mengelola administrator yang sudah ada.`;
 
-      this.ctx.reply(pesan, {
-        parse_mode: "HTML",
-        reply_markup: markup.inlineKeyboard(keyb),
-      });
-      return;
-    }
+            const rows: ReturnType<typeof btn.text>[][] = [];
+            const addNext = (
+              list: { UserId: string | number | bigint }[],
+              i: number,
+            ): Promise<void> | undefined => {
+              const item = list[i];
+              if (!item) return;
 
-    var pola = /^\/gc$/i;
-    if (pola.exec(this.ctx.message?.text!)) {
-      var pesan = `👥 <b>Kelola Grup</b>`;
-      pesan += `\nTambahkan grup atau kelola grup yang sudah ada.`;
-      let keyb = [];
-      keyb[0] = [btn.text(`✏️ Kelola Grup`, `group_manage_none`)];
-      keyb[1] = [btn.text(`➕ Tambah Grup`, `group_add_none`)];
+              return this.bot.api.getChat(Number(item.UserId)).then((r) => {
+                rows.push([
+                  btn.text(
+                    r.last_name
+                      ? `${r.first_name} ${r.last_name}`
+                      : String(r.first_name),
+                    `admin_manage_${item.UserId}`,
+                  ),
+                  btn.text(`❌`, `admin_demote_${item.UserId}`),
+                ]);
 
-      this.ctx.reply(pesan, {
-        parse_mode: "HTML",
-        reply_markup: markup.inlineKeyboard(keyb),
-      });
-      return;
-    }
+                return addNext(list, i + 1);
+              });
+            };
 
-    var pola = /^\/getrole$/i;
-    if (pola.exec(this.ctx.message?.text!)) {
-      if (!Cache.get(`groupName`))
-        return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nBelum ada grup yang ditentukan.`,
-          { parse_mode: "HTML" },
-        );
-      if (!Cache.get(`begins`))
-        return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nPermainan belum dimulai.`,
-          { parse_mode: "HTML" },
-        );
-      const getRole = Cache.get(`role`);
-      if (!getRole)
-        return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nUserbot belum mendapatkan peran.`,
-          { parse_mode: "HTML" },
-        );
-      if (!Cache.get(`night`))
-        return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nPeran terdaftar belum lengkap.`,
-          { parse_mode: "HTML" },
-        );
-
-      this.ctx.reply(`⏳ Memproses...`).then((message_result) => {
-        const parsedRoles = Object.fromEntries(
-          String(getRole)
-            .split(",")
-            .map((pair: string) => {
-              const [id, role] = pair.split(":");
-              return [id.trim(), role.trim()];
-            }),
-        );
-        const parsedNames = Object.fromEntries(
-          String(Cache.get(`roleNames`))
-            .split(",")
-            .map((pair: string) => {
-              const [id, name] = pair.split(":");
-              return [id?.trim(), name?.trim()];
-            }),
-        );
-
-        const result = Object.entries(parsedRoles)
-          .map(([id, role]) => {
-            const name = parsedNames[id] ?? id;
-            return `• ${name} - ${Cache.get(`roleEmot${role}`)}`;
-          })
-          .join("\n");
-
-        var pesan = `🎎 <b>Peran</b>`;
-        pesan += `\nBerikut adalah daftar peran semua userbot yang berada dalam permainan:`;
-        pesan += `\n${result}`;
-
-        this.bot.api.editMessageText(
-          message_result.chat.id,
-          message_result.message_id,
-          pesan,
-          { parse_mode: "HTML" },
-        );
-      });
-      return;
-    }
-
-    var pola = /^\/ubot$/i;
-    if (pola.exec(this.ctx.message?.text!)) {
-      this.ctx.reply(`⏳ Memproses...`).then((result) => {
-        Database.orm.public.DisabledUserBot.select("UserId")
-          .all()
-          .then((db_result) => {
-            const disabledSet = new Set(
-              db_result.map((row) => row.UserId.toString()),
-            );
-            var pesan = `🤖 <b>Daftar Bot</b>`;
-            pesan += `\nKelola userbot mana yang ingin Anda gunakan atau matikan.`;
-
-            const keyb = this.manager
-              .getUsers()
-              .map((u) => [
-                btn.text(
-                  `${u.fullName} ${disabledSet.has(u.id) ? "❌" : "✅"}`,
-                  `userbot_${u.id}`,
-                ),
-              ]);
-
-            this.ctx.api.editMessageText(
-              result.chat.id,
-              result.message_id,
-              pesan,
-              {
-                parse_mode: "HTML",
-                reply_markup: { inline_keyboard: keyb },
-              },
-            );
+            Database.orm.public.Administrators.all()
+              .then((adminList) => addNext(adminList, 0))
+              .then(() => {
+                rows.push([btn.text(`➕ Add Admin`, `admin_add_none`)]);
+                this.bot.api.editMessageText(
+                  message_result.chat.id,
+                  message_result.message_id,
+                  pesan,
+                  {
+                    reply_markup: markup.inlineKeyboard(rows),
+                    parse_mode: "HTML",
+                  },
+                );
+              });
           });
-      });
-      return;
-    }
+          return;
+        }
 
-    var pola = /^\/next$/i;
-    if (pola.exec(this.ctx.message?.text!)) {
-      if (Cache.get(`mode`))
-        return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nSuck mode harus dihentikan terlebih dahulu.`,
-          { parse_mode: "HTML" },
-        );
-      if (Cache.get(`join`))
-        return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nHanya 1 grup setiap saat - ${Cache.get(`groupName`)}.\n${Cache.get(`continu`) ? "🔁 Continuous sedang aktif." : ""}`,
-          { parse_mode: "HTML" },
-        );
-      this.ctx.reply(`⏳ Memproses...`).then((result) => {
-        var pesan = `👥 <b>Pilih Grup</b>`;
-        pesan += `\nPilih grup di mana Anda ingin mengirim perintah /next`;
-        pesan += `\nNama grup tidak terbaru? Tekan tombol refresh.`;
-        Database.orm.public.Group.all().then((db_result) => {
+        var pola = /^\/log$/i;
+        if (pola.exec(this.ctx.message?.text!)) {
+          if (!admin.CanViewLog)
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          const getLog = Cache.get(`log`);
           let keyb = [];
-
-          for (var i = 0; i < db_result.length; i++) {
-            keyb.push([
-              btn.text(
-                db_result[i].GroupName,
-                `next_${db_result[i].GroupId}_method`,
-              ),
-            ]);
+          keyb[0] = [btn.text(`🗑 Purge`, `log_purge`)];
+          if (String(getLog).length > 4000) {
+            fs.writeFile("log.txt", String(getLog), "utf-8");
+            this.bot.api.sendDocument(chat?.id!, new InputFile("log.txt"), {
+              reply_markup: markup.inlineKeyboard(keyb),
+            });
+            return;
           }
-          keyb.push([btn.text(`🔄 Refresh`, `next_refresh_none`)]);
+          var pesan = `📝 <b>Log</b>`;
+          pesan += `\n${getLog ? `<code>${getLog}</code>` : "Belum ada apapun."}`;
 
-          this.bot.api.editMessageText(chat?.id!, result.message_id, pesan, {
-            parse_mode: "HTML",
-            reply_markup: markup.inlineKeyboard(keyb),
-          });
-        });
-      });
-      return;
-    }
-
-    var pola = /^\/smode$/i;
-    if (pola.exec(this.ctx.message?.text!)) {
-      if (!Cache.get(`groupName`))
-        return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nBelum ada grup yang ditentukan.`,
-          { parse_mode: "HTML" },
-        );
-      this.ctx.reply(`⏳ Memproses...`).then((result) => {
-        if (Cache.get("mode") === "afkmode") {
-          var pesan = `🧨 <b>Suck Mode</b>`;
-          pesan += `\nSuck mode sedang aktif di ${Cache.get(`groupName`)}, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
-          pesan += `\n\n• 🎎 Afk Semua - membuat semua userbot afk hingga permainan berakhir.`;
-          pesan += `\n• 🔁 Continuous - aktifkan fitur ini untuk membuat smode berjalan selama mungkin tanpa bergantung pada jumlah hari yang ditentukan.`;
-
-          let keyb: any[] = [];
-          keyb.push([
-            btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
-            btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
-          ]);
-          keyb.push(...this.buildRoleButtons("afkmode_role"));
-          keyb.push([
-            btn.text(
-              `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
-              `afkmode_afkrl_none`,
-            ),
-            btn.text(
-              `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
-              `afkmode_conti_none`,
-            ),
-          ]);
-          keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
-
-          this.bot.api.editMessageText(chat?.id!, result.message_id, pesan, {
+          this.ctx.reply(pesan, {
             parse_mode: "HTML",
             reply_markup: markup.inlineKeyboard(keyb),
           });
           return;
         }
 
-        Cache.set(`afkmodeHook`, true);
-        Cache.set(`afkmodeDet`, true);
-        Cache.set(`afkmodeMani`, true);
-        Cache.set(`afkmodeSanta`, true);
-        Cache.set(`afkmodeDonCh`, true);
-        var pesan = `❇️ <b>Masukkan Angka</b>`;
-        pesan += `\nBerapa lama Anda ingin ngehama?`;
-        let keyb = [];
-        keyb[0] = [btn.text(`❌ Batal`, `cancel_`)];
-
-        Cache.set(`smode_session_${chat?.id}`, true);
-        this.bot.api.editMessageText(chat?.id!, result.message_id, pesan, {
-          parse_mode: "HTML",
-          reply_markup: markup.inlineKeyboard(keyb),
-        });
-      });
-      return;
-    }
-
-    var pola = /^\/reset$/i;
-    if (pola.exec(this.ctx.message?.text!)) {
-      var pesan = `⚠️ <b>Perhatian!</b>`;
-      pesan += `\nApakah Anda ingin menghapus semua cache? suck mode yang aktif, next yang sudah dikirim akan terdampak.`;
-      let keyb = [];
-      keyb[0] = [btn.text(`❌ Batal`, `close_`), btn.text(`✅ Ya`, `reset_`)];
-      this.ctx.reply(pesan, {
-        parse_mode: "HTML",
-        reply_markup: markup.inlineKeyboard(keyb),
-      });
-      return;
-    }
-
-    // SESSION
-    const getSmodeSession = Cache.get(`smode_session_${chat?.id}`);
-    const getAddgcSession = Cache.get(`session_addgc_${chat?.id}`);
-    if (getSmodeSession) {
-      if (/\D+/i.exec(this.ctx.message?.text!))
-        return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nMasukkan angka yang valid untuk durasi ngehama.`,
-          { parse_mode: "HTML" },
-        );
-      if (Number(this.ctx.message?.text) <= 0)
-        return this.ctx.reply(
-          `⚠️ <b>Perhatian!</b>\nHari harus lebih besari dari 0.`,
-          { parse_mode: "HTML" },
-        );
-      let pesan = "";
-      let keyb = [];
-      if (!Cache.get(`mode`)) {
-        pesan = `🗳 <b>Mode Pemilihan</b>`;
-        pesan += `\nApakah Anda ingin melewati pemilihan? jika ya, maka semua userbot akan memilih target acak dari daftar userbot (target ditentukan apabila dia tidak memiliki peran aktif).`;
-
-        keyb[0] = [
-          btn.text(`Gunakan ✅`, `afkmode_vote_yes`),
-          btn.text(`Lewati`, `afkmode_vote_no`),
-        ];
-        keyb[1] = [
-          btn.text(`❌ Batal`, `cancel_`),
-          btn.text(`Lanjut ➡️`, `afkmode_rlset_none`),
-        ];
-        Cache.set(`useVote`, "yes");
-      } else {
-        if (Number(this.ctx.message?.text) < Number(Cache.get(`dayNow`) ?? 0))
-          return this.ctx.reply(
-            `⚠️ <b>Perhatian!</b>\nSaat ini hari dalam permainan telah berjalan selama ${Cache.get(`dayNow`)} hari, Anda harus meningkatkan durasi ngehama.`,
-            { parse_mode: "HTML" },
-          );
-
-        pesan = "✅ <b>Hari Diubah!</b>";
-        pesan += `\nDurasi ngehama ditingkatkan hingga hari ke-${this.ctx.message?.text}.`;
-      }
-
-      Cache.set(`afkmodeDur`, Number(this.ctx.message?.text!));
-      Cache.del(`smode_session_${chat?.id}`);
-      if (!Cache.get(`mode`)) {
-        this.ctx.reply(pesan, {
-          parse_mode: "HTML",
-          reply_markup: markup.inlineKeyboard(keyb),
-        });
-      } else {
-        Utils.sendMessageToAdmin(this.bot, pesan);
-      }
-
-      return;
-    }
-
-    if (getAddgcSession) {
-      this.ctx
-        .reply(`⏳ Mencari informasi dari salah satu userbot...`)
-        .then((message_result) => {
-          const groupText = String(this.ctx.message?.text!);
-          this.manager
-            .firstSuccess((ref) => this.manager.getGroupInfo(ref, groupText))
-            .then(
-              async (entity) => {
-                Cache.del(`session_addgc_${chat?.id}`);
-                const groupId = `-100${entity.id}`;
-
-                let pesan = `✅ <b>Ditambahkan</b>`;
-                pesan += `\nGrup telah ditambahkan, berikut informasinya:`;
-                pesan += `\n\nNama: ${entity.title ?? "-"}`;
-                pesan += `\nID: <code>${groupId}</code>`;
-                pesan += `\nUsername: ${entity.username ? `@${entity.username}` : "-"}`;
-                pesan += `\nPeserta: ${entity.total ?? "-"}`;
-
-                await Database.orm.public.Group.create({
-                  GroupId: groupId,
-                  GroupName: String(entity.title),
-                });
-                this.ctx.api.editMessageText(
-                  message_result.chat.id,
-                  message_result.message_id,
-                  pesan,
-                  { parse_mode: "HTML" },
-                );
-              },
-              () => {
-                this.ctx.api.editMessageText(
-                  message_result.chat.id,
-                  message_result.message_id,
-                  `❌ <b>Gagal!</b>\nTidak ada userbot yang bisa mendapatkan info grup tersebut, silahkan periksa:\n• Apakah grup tersebut ada?\n• Jika privat, Anda harus menambahkan salah 1 userbot ke sana.`,
-                  { parse_mode: "HTML" },
-                );
-              },
-            );
-        });
-      return;
-    }
-  }
-
-  public callback() {
-    const chat = this.ctx.chat;
-    const callback = this.ctx.callbackQuery;
-    const cbData = String(callback?.data);
-    let mc;
-    const isAdmin = admins.find((id: string) => id === String(chat?.id));
-
-    if (!isAdmin) {
-      this.ctx.answerCallbackQuery({
-        text: "⚠️ Access Denied.",
-        show_alert: true,
-      });
-      this.ctx.deleteMessage();
-      return;
-    }
-
-    var pola = /^log_(.*)$/i;
-    if ((mc = pola.exec(cbData))) {
-      const isHAdmin = String(process.env["H_ADMIN"])
-        .split(",")
-        .find((id: string) => id === String(chat?.id));
-      const type = mc[1];
-
-      if (!isHAdmin)
-        return this.ctx.answerCallbackQuery({
-          text: "⚠️ Akses hanya untuk administrator tingkat tinggi.",
-          show_alert: true,
-        });
-
-      if (type === "purge") {
-        Cache.del(`log`);
-        var pesan = `📝 <b>Log</b>`;
-        pesan += `\nBelum ada apapun.`;
-        let keyb = [];
-        keyb[0] = [btn.text(`🗑 Purge`, `log_purge`)];
-
-        if (String(Cache.get(`log`)).length > 4000) {
-          this.ctx.deleteMessage().catch(() => {});
-          this.ctx
-            .reply(pesan, {
-              parse_mode: "HTML",
-              reply_markup: markup.inlineKeyboard(keyb),
-            })
-            .catch(() => {});
-        } else {
-          this.ctx
-            .editMessageText(pesan, {
-              parse_mode: "HTML",
-              reply_markup: markup.inlineKeyboard(keyb),
-            })
-            .catch(() => {});
-        }
-        this.ctx.answerCallbackQuery();
-        return;
-      }
-    }
-
-    var pola = /^cancel_$/i;
-    if (pola.exec(cbData)) {
-      Cache.del(`useVote`);
-      Cache.del(`mode`);
-      Cache.del(`smode_session_${this.ctx.chat?.id}`);
-      Cache.del(`afkmodeDet`);
-      Cache.del(`afkmodeHook`);
-      Cache.del(`afkmodeMani`);
-      Cache.del(`afkmodeSanta`);
-      this.ctx.editMessageText(`❌ <b>Dibatalkan!</b>`, {
-        parse_mode: "HTML",
-      });
-      return;
-    }
-
-    var pola = /^nothing$/i;
-    if (pola.exec(cbData)) {
-      return this.ctx.answerCallbackQuery();
-    }
-
-    var pola = /^close_$/i;
-    if (pola.exec(cbData)) {
-      this.ctx.deleteMessage().catch(() => {});
-      return;
-    }
-
-    var pola = /^reset_$/i;
-    if (pola.exec(cbData)) {
-      Cache.flushAll();
-      this.ctx.editMessageText(
-        `✅ <b>Berhasil!</b>\nSemua cache telah dihapus.`,
-        { parse_mode: "HTML" },
-      );
-      return;
-    }
-
-    var pola = /^group_(.*)_(.*)$/i;
-    if ((mc = pola.exec(cbData))) {
-      const type = mc[1];
-      const groupId = mc[2];
-
-      if (type === "return") {
-        Cache.del(`session_addgc_${chat?.id}`);
-        var pesan = `👥 <b>Kelola Grup</b>`;
-        pesan += `\nTambahkan grup atau kelola grup yang sudah ada.`;
-        let keyb = [];
-        keyb[0] = [btn.text(`✏️ Kelola Grup`, `group_manage_none`)];
-        keyb[1] = [btn.text(`➕ Tambah Grup`, `group_add_none`)];
-        this.ctx.editMessageText(pesan, {
-          parse_mode: "HTML",
-          reply_markup: markup.inlineKeyboard(keyb),
-        });
-        return;
-      }
-
-      if (type === "add") {
-        var pesan = `❇️ <b>Grup Baru</b>`;
-        pesan += `\n• Silahkan kirim username grup tersebut.`;
-        pesan += `\n• Jika grup tersebut privat, Anda harus menambahkan salah 1 userbot ke sana.`;
-        let keyb = [];
-        keyb[0] = [btn.text(`⬅️ Return`, `group_return_none`)];
-
-        Cache.set(`session_addgc_${chat?.id}`, true);
-        this.ctx.editMessageText(pesan, {
-          parse_mode: "HTML",
-          reply_markup: markup.inlineKeyboard(keyb),
-        });
-        return;
-      }
-
-      if (type === "manage") {
-        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
-          var pesan = `✏️ <b>Kelola Grup</b>`;
-          pesan += `\nPilih grup mana yang ingin Anda hapus.`;
+        var pola = /^\/gc$/i;
+        if (pola.exec(this.ctx.message?.text!)) {
+          var pesan = `👥 <b>Kelola Grup</b>`;
+          pesan += `\nTambahkan grup atau kelola grup yang sudah ada.`;
           let keyb = [];
+          keyb[0] = [btn.text(`✏️ Kelola Grup`, `group_manage_none`)];
+          keyb[1] = [btn.text(`➕ Tambah Grup`, `group_add_none`)];
 
-          Database.orm.public.Group.all().then((db_result) => {
-            if (db_result.length <= 0)
-              return this.ctx.answerCallbackQuery({
-                text: `⚠️ Tidak ada grup.`,
-                show_alert: true,
+          this.ctx.reply(pesan, {
+            parse_mode: "HTML",
+            reply_markup: markup.inlineKeyboard(keyb),
+          });
+          return;
+        }
+
+        var pola = /^\/getrole$/i;
+        if (pola.exec(this.ctx.message?.text!)) {
+          if (!admin.CanGetRole)
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          if (!Cache.get(`groupName`))
+            return this.ctx.reply(
+              `⚠️ <b>Perhatian!</b>\nBelum ada grup yang ditentukan.`,
+              { parse_mode: "HTML" },
+            );
+          if (!Cache.get(`begins`))
+            return this.ctx.reply(
+              `⚠️ <b>Perhatian!</b>\nPermainan belum dimulai.`,
+              { parse_mode: "HTML" },
+            );
+          const getRole = Cache.get(`role`);
+          if (!getRole)
+            return this.ctx.reply(
+              `⚠️ <b>Perhatian!</b>\nUserbot belum mendapatkan peran.`,
+              { parse_mode: "HTML" },
+            );
+          if (!Cache.get(`night`))
+            return this.ctx.reply(
+              `⚠️ <b>Perhatian!</b>\nPeran terdaftar belum lengkap.`,
+              { parse_mode: "HTML" },
+            );
+
+          this.ctx.reply(`⏳ Memproses...`).then((message_result) => {
+            const parsedRoles = Object.fromEntries(
+              String(getRole)
+                .split(",")
+                .map((pair: string) => {
+                  const [id, role] = pair.split(":");
+                  return [id.trim(), role.trim()];
+                }),
+            );
+            const parsedNames = Object.fromEntries(
+              String(Cache.get(`roleNames`))
+                .split(",")
+                .map((pair: string) => {
+                  const [id, name] = pair.split(":");
+                  return [id?.trim(), name?.trim()];
+                }),
+            );
+
+            const result = Object.entries(parsedRoles)
+              .map(([id, role]) => {
+                const name = parsedNames[id] ?? id;
+                return `• ${name} - ${Cache.get(`roleEmot${role}`)}`;
+              })
+              .join("\n");
+
+            var pesan = `🎎 <b>Peran</b>`;
+            pesan += `\nBerikut adalah daftar peran semua userbot yang berada dalam permainan:`;
+            pesan += `\n${result}`;
+
+            this.bot.api.editMessageText(
+              message_result.chat.id,
+              message_result.message_id,
+              pesan,
+              { parse_mode: "HTML" },
+            );
+          });
+          return;
+        }
+
+        var pola = /^\/ubot$/i;
+        if (pola.exec(this.ctx.message?.text!)) {
+          if (!admin.CanManageUbot)
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          this.ctx.reply(`⏳ Memproses...`).then((result) => {
+            Database.orm.public.DisabledUserBot.select("UserId")
+              .all()
+              .then((db_result) => {
+                const disabledSet = new Set(
+                  db_result.map((row) => row.UserId.toString()),
+                );
+                var pesan = `🤖 <b>Daftar Bot</b>`;
+                pesan += `\nKelola userbot mana yang ingin Anda gunakan atau matikan.`;
+
+                const keyb = this.manager
+                  .getUsers()
+                  .map((u) => [
+                    btn.text(
+                      `${u.fullName} ${disabledSet.has(u.id) ? "❌" : "✅"}`,
+                      `userbot_${u.id}`,
+                    ),
+                  ]);
+
+                this.ctx.api.editMessageText(
+                  result.chat.id,
+                  result.message_id,
+                  pesan,
+                  {
+                    parse_mode: "HTML",
+                    reply_markup: { inline_keyboard: keyb },
+                  },
+                );
               });
-            for (var i = 0; i < db_result.length; i++) {
-              keyb.push([
-                btn.text(db_result[i].GroupName, `nothing`),
-                btn.text(`🗑`, `group_del_${db_result[i].GroupId}`),
-              ]);
-            }
-            keyb.push([btn.text(`⬅️ Return`, `group_return_none`)]);
+          });
+          return;
+        }
 
-            this.ctx.editMessageText(pesan, {
+        var pola = /^\/next$/i;
+        if (pola.exec(this.ctx.message?.text!)) {
+          if (!admin.CanUseNext)
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          if (Cache.get(`mode`))
+            return this.ctx.reply(
+              `⚠️ <b>Perhatian!</b>\nSuck mode harus dihentikan terlebih dahulu.`,
+              { parse_mode: "HTML" },
+            );
+          if (Cache.get(`join`))
+            return this.ctx.reply(
+              `⚠️ <b>Perhatian!</b>\nHanya 1 grup setiap saat - ${Cache.get(`groupName`)}.\n${Cache.get(`continu`) ? "🔁 Continuous sedang aktif." : ""}`,
+              { parse_mode: "HTML" },
+            );
+          this.ctx.reply(`⏳ Memproses...`).then((result) => {
+            var pesan = `👥 <b>Pilih Grup</b>`;
+            pesan += `\nPilih grup di mana Anda ingin mengirim perintah /next`;
+            pesan += `\nNama grup tidak terbaru? Tekan tombol refresh.`;
+            Database.orm.public.Group.all().then((db_result) => {
+              let keyb = [];
+
+              for (var i = 0; i < db_result.length; i++) {
+                keyb.push([
+                  btn.text(
+                    db_result[i].GroupName,
+                    `next_${db_result[i].GroupId}_method`,
+                  ),
+                ]);
+              }
+              keyb.push([btn.text(`🔄 Refresh`, `next_refresh_none`)]);
+
+              this.bot.api.editMessageText(
+                chat?.id!,
+                result.message_id,
+                pesan,
+                {
+                  parse_mode: "HTML",
+                  reply_markup: markup.inlineKeyboard(keyb),
+                },
+              );
+            });
+          });
+          return;
+        }
+
+        var pola = /^\/smode$/i;
+        if (pola.exec(this.ctx.message?.text!)) {
+          if (!admin.CanManageSmode)
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          if (!Cache.get(`groupName`))
+            return this.ctx.reply(
+              `⚠️ <b>Perhatian!</b>\nBelum ada grup yang ditentukan.`,
+              { parse_mode: "HTML" },
+            );
+          this.ctx.reply(`⏳ Memproses...`).then((result) => {
+            if (Cache.get("mode") === "afkmode") {
+              var pesan = `🧨 <b>Suck Mode</b>`;
+              pesan += `\nSuck mode sedang aktif di ${Cache.get(`groupName`)}, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
+              pesan += `\n\n• 🎎 Afk Semua - membuat semua userbot afk hingga permainan berakhir.`;
+              pesan += `\n• 🔁 Continuous - aktifkan fitur ini untuk membuat smode berjalan selama mungkin tanpa bergantung pada jumlah hari yang ditentukan.`;
+
+              let keyb: any[] = [];
+              keyb.push([
+                btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
+                btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
+              ]);
+              keyb.push(...this.buildRoleButtons("afkmode_role"));
+              keyb.push([
+                btn.text(
+                  `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
+                  `afkmode_afkrl_none`,
+                ),
+                btn.text(
+                  `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
+                  `afkmode_conti_none`,
+                ),
+              ]);
+              keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
+
+              this.bot.api.editMessageText(
+                chat?.id!,
+                result.message_id,
+                pesan,
+                {
+                  parse_mode: "HTML",
+                  reply_markup: markup.inlineKeyboard(keyb),
+                },
+              );
+              return;
+            }
+
+            if (!admin.CanStartSmode)
+              return this.ctx.reply(
+                `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+                { parse_mode: "HTML" },
+              );
+
+            Cache.set(`afkmodeHook`, true);
+            Cache.set(`afkmodeDet`, true);
+            Cache.set(`afkmodeMani`, true);
+            Cache.set(`afkmodeSanta`, true);
+            Cache.set(`afkmodeDonCh`, true);
+            var pesan = `❇️ <b>Masukkan Angka</b>`;
+            pesan += `\nBerapa lama Anda ingin ngehama?`;
+            let keyb = [];
+            keyb[0] = [btn.text(`❌ Batal`, `cancel_`)];
+
+            Cache.set(`smode_session_${chat?.id}`, true);
+            this.bot.api.editMessageText(chat?.id!, result.message_id, pesan, {
               parse_mode: "HTML",
               reply_markup: markup.inlineKeyboard(keyb),
             });
           });
-        });
-        return;
-      }
+          return;
+        }
 
-      if (type === "del") {
-        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
-          Database.orm.public.Group.where({ GroupId: groupId })
-            .delete()
-            .then(() => {
-              Database.orm.public.Group.all().then((db_result) => {
-                if (db_result.length <= 0) {
-                  var pesan = `👥 <b>Kelola Grup</b>`;
-                  pesan += `\nTambahkan grup atau kelola grup yang sudah ada.`;
-                  let keyb = [];
-                  keyb[0] = [btn.text(`✏️ Kelola Grup`, `group_manage_none`)];
-                  keyb[1] = [btn.text(`➕ Tambah Grup`, `group_add_none`)];
+        var pola = /^\/reset$/i;
+        if (pola.exec(this.ctx.message?.text!)) {
+          if (!admin.CanUseReset)
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          var pesan = `⚠️ <b>Perhatian!</b>`;
+          pesan += `\nApakah Anda ingin menghapus semua cache? suck mode yang aktif, next yang sudah dikirim akan terdampak.`;
+          let keyb = [];
+          keyb[0] = [
+            btn.text(`❌ Batal`, `close_`),
+            btn.text(`✅ Ya`, `reset_`),
+          ];
+          this.ctx.reply(pesan, {
+            parse_mode: "HTML",
+            reply_markup: markup.inlineKeyboard(keyb),
+          });
+          return;
+        }
+
+        // SESSION
+        const getSmodeSession = Cache.get(`smode_session_${chat?.id}`);
+        const getAddgcSession = Cache.get(`session_addgc_${chat?.id}`);
+        const getAddAdmSession = Cache.get(`sessionAddAdm_${chat?.id}`);
+        if (getSmodeSession) {
+          if (!admin.CanStartSmode || !admin.CanManageSmode)
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          if (/\D+/i.exec(this.ctx.message?.text!))
+            return this.ctx.reply(
+              `⚠️ <b>Perhatian!</b>\nMasukkan angka yang valid untuk durasi ngehama.`,
+              { parse_mode: "HTML" },
+            );
+          if (Number(this.ctx.message?.text) <= 0)
+            return this.ctx.reply(
+              `⚠️ <b>Perhatian!</b>\nHari harus lebih besari dari 0.`,
+              { parse_mode: "HTML" },
+            );
+          let pesan = "";
+          let keyb = [];
+          if (!Cache.get(`mode`)) {
+            pesan = `🗳 <b>Mode Pemilihan</b>`;
+            pesan += `\nApakah Anda ingin melewati pemilihan? jika ya, maka semua userbot akan memilih target acak dari daftar userbot (target ditentukan apabila dia tidak memiliki peran aktif).`;
+
+            keyb[0] = [
+              btn.text(`Gunakan ✅`, `afkmode_vote_yes`),
+              btn.text(`Lewati`, `afkmode_vote_no`),
+            ];
+            keyb[1] = [
+              btn.text(`❌ Batal`, `cancel_`),
+              btn.text(`Lanjut ➡️`, `afkmode_rlset_none`),
+            ];
+            Cache.set(`useVote`, "yes");
+          } else {
+            if (
+              Number(this.ctx.message?.text) < Number(Cache.get(`dayNow`) ?? 0)
+            )
+              return this.ctx.reply(
+                `⚠️ <b>Perhatian!</b>\nSaat ini hari dalam permainan telah berjalan selama ${Cache.get(`dayNow`)} hari, Anda harus meningkatkan durasi ngehama.`,
+                { parse_mode: "HTML" },
+              );
+
+            pesan = "✅ <b>Hari Diubah!</b>";
+            pesan += `\nDurasi ngehama ditingkatkan hingga hari ke-${this.ctx.message?.text}.`;
+          }
+
+          Cache.set(`afkmodeDur`, Number(this.ctx.message?.text!));
+          Cache.del(`smode_session_${chat?.id}`);
+          if (!Cache.get(`mode`)) {
+            this.ctx.reply(pesan, {
+              parse_mode: "HTML",
+              reply_markup: markup.inlineKeyboard(keyb),
+            });
+          } else {
+            Utils.sendMessageToAdmin(this.bot, pesan);
+          }
+
+          return;
+        }
+
+        if (getAddgcSession) {
+          if (!admin.CanAddGroup)
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          this.ctx
+            .reply(`⏳ Mencari informasi dari salah satu userbot...`)
+            .then((message_result) => {
+              const groupText = String(this.ctx.message?.text!);
+              this.manager
+                .firstSuccess((ref) =>
+                  this.manager.getGroupInfo(ref, groupText),
+                )
+                .then(
+                  async (entity) => {
+                    Cache.del(`session_addgc_${chat?.id}`);
+                    const groupId = `-100${entity.id}`;
+
+                    let pesan = `✅ <b>Ditambahkan</b>`;
+                    pesan += `\nGrup telah ditambahkan, berikut informasinya:`;
+                    pesan += `\n\nNama: ${entity.title ?? "-"}`;
+                    pesan += `\nID: <code>${groupId}</code>`;
+                    pesan += `\nUsername: ${entity.username ? `@${entity.username}` : "-"}`;
+                    pesan += `\nPeserta: ${entity.total ?? "-"}`;
+
+                    await Database.orm.public.Group.create({
+                      GroupId: groupId,
+                      GroupName: String(entity.title),
+                    });
+                    this.ctx.api.editMessageText(
+                      message_result.chat.id,
+                      message_result.message_id,
+                      pesan,
+                      { parse_mode: "HTML" },
+                    );
+                  },
+                  () => {
+                    this.ctx.api.editMessageText(
+                      message_result.chat.id,
+                      message_result.message_id,
+                      `❌ <b>Gagal!</b>\nTidak ada userbot yang bisa mendapatkan info grup tersebut, silahkan periksa:\n• Apakah grup tersebut ada?\n• Jika privat, Anda harus menambahkan salah 1 userbot ke sana.`,
+                      { parse_mode: "HTML" },
+                    );
+                  },
+                );
+            });
+          return;
+        }
+
+        if (getAddAdmSession) {
+          if (!admin.CanPromoteUser)
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          if (/\D+/i.exec(this.ctx.message?.text!))
+            return this.ctx.reply(`⚠️ <b>Perhatian!</b>\nHanya angka.`, {
+              parse_mode: "HTML",
+            });
+          if (Number(this.ctx.message?.text) <= 0)
+            return this.ctx.reply(
+              `⚠️ <b>Perhatian!</b>\nHarus lebih besari dari 0.`,
+              { parse_mode: "HTML" },
+            );
+
+          this.ctx.reply(`⏳ Memproses...`).then((message_result) => {
+            const target = String(this.ctx.message?.text);
+
+            Database.orm.public.Administrators.where({ UserId: target })
+              .first()
+              .then((result) => {
+                if (result)
+                  return this.bot.api.editMessageText(
+                    message_result.chat.id,
+                    message_result.message_id,
+                    `⚠️ <b>Ada!</b>\nPengguna sudah berada dalam admin list.`,
+                    { parse_mode: "HTML" },
+                  );
+
+                return this.bot.api.getChat(target).then((r) => {
+                  const nama = r.last_name
+                    ? `${r.first_name} ${r.last_name}`
+                    : r.first_name;
+                  Cache.del(`sessionAddAdm_${chat?.id}`);
+                  Cache.set(`promoteDraft_${chat?.id}`, {
+                    target,
+                    perms: {},
+                  } as PromoteDraft);
+
+                  return this.bot.api.editMessageText(
+                    message_result.chat.id,
+                    message_result.message_id,
+                    `👮‍♂️ <b>Angkat ${nama}</b>\nPilih izin yang akan diberikan. Izin bertanda 🔒 tidak bisa Anda berikan karena Anda sendiri tidak memilikinya.`,
+                    {
+                      parse_mode: "HTML",
+                      reply_markup: markup.inlineKeyboard(
+                        this.buildPromoteKeyboard(admin, target, {}),
+                      ),
+                    },
+                  );
+                });
+              })
+              .catch(() =>
+                this.bot.api.editMessageText(
+                  message_result.chat.id,
+                  message_result.message_id,
+                  `⚠️ <b>Gagal!</b>\nPengguna tidak ditemukan, pastikan dia sudah start bot.`,
+                  { parse_mode: "HTML" },
+                ),
+              );
+          });
+          return;
+        }
+      });
+  }
+
+  public callback() {
+    const chat = this.ctx.chat;
+    Database.orm.public.Administrators.where({ UserId: String(chat?.id) })
+      .first()
+      .then((admin) => {
+        if (!admin)
+          return this.ctx.answerCallbackQuery({
+            text: "⚠️ Access Denied!\nYou're not authorized to use this bot.",
+            show_alert: true,
+          });
+
+        const callback = this.ctx.callbackQuery;
+        const cbData = String(callback?.data);
+        let mc;
+
+        var pola = /^log_(.*)$/i;
+        if ((mc = pola.exec(cbData))) {
+          if (!admin.CanManageGroup && !admin.CanViewLog)
+            return this.ctx.answerCallbackQuery({
+              text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+              show_alert: true,
+            });
+          const type = mc[1];
+
+          if (type === "purge") {
+            Cache.del(`log`);
+            var pesan = `📝 <b>Log</b>`;
+            pesan += `\nBelum ada apapun.`;
+            let keyb = [];
+            keyb[0] = [btn.text(`🗑 Purge`, `log_purge`)];
+
+            if (String(Cache.get(`log`)).length > 4000) {
+              this.ctx.deleteMessage().catch(() => {});
+              this.ctx
+                .reply(pesan, {
+                  parse_mode: "HTML",
+                  reply_markup: markup.inlineKeyboard(keyb),
+                })
+                .catch(() => {});
+            } else {
+              this.ctx
+                .editMessageText(pesan, {
+                  parse_mode: "HTML",
+                  reply_markup: markup.inlineKeyboard(keyb),
+                })
+                .catch(() => {});
+            }
+            this.ctx.answerCallbackQuery();
+            return;
+          }
+        }
+
+        var pola = /^cancel_$/i;
+        if (pola.exec(cbData)) {
+          Cache.del(`useVote`);
+          Cache.del(`mode`);
+          Cache.del(`smode_session_${this.ctx.chat?.id}`);
+          Cache.del(`afkmodeDet`);
+          Cache.del(`afkmodeHook`);
+          Cache.del(`afkmodeMani`);
+          Cache.del(`afkmodeSanta`);
+          this.ctx.editMessageText(`❌ <b>Dibatalkan!</b>`, {
+            parse_mode: "HTML",
+          });
+          return;
+        }
+
+        var pola = /^nothing$/i;
+        if (pola.exec(cbData)) {
+          return this.ctx.answerCallbackQuery();
+        }
+
+        var pola = /^close_$/i;
+        if (pola.exec(cbData)) {
+          this.ctx.deleteMessage().catch(() => {});
+          return;
+        }
+
+        var pola = /^reset_$/i;
+        if (pola.exec(cbData)) {
+          if (!admin.CanUseReset)
+            return this.ctx.answerCallbackQuery({
+              text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+              show_alert: true,
+            });
+          Cache.flushAll();
+          this.ctx.editMessageText(
+            `✅ <b>Berhasil!</b>\nSemua cache telah dihapus.`,
+            { parse_mode: "HTML" },
+          );
+          return;
+        }
+
+        var pola = /^admin_(.*)_(.*)$/i;
+        if ((mc = pola.exec(cbData))) {
+          const act = mc[1];
+          const userId = mc[2];
+
+          if (act === "add") {
+            if (!admin.CanPromoteUser)
+              return this.ctx.answerCallbackQuery({
+                text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+                show_alert: true,
+              });
+            var pesan = `❇️ <b>Add Admin</b>`;
+            pesan += `\nSend me the user id here, the user must start the bot first.`;
+            let keyb = [];
+            keyb[0] = [btn.text(`❌ Batal`, `admin_return_none`)];
+
+            Cache.set(`sessionAddAdm_${chat?.id}`, true);
+            this.ctx.editMessageText(pesan, {
+              parse_mode: "HTML",
+              reply_markup: markup.inlineKeyboard(keyb),
+            });
+            this.ctx.answerCallbackQuery();
+            return;
+          }
+
+          if (act === "return") {
+            Cache.del(`sessionAddAdm_${chat?.id}`);
+            this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+              var pesan = `👮‍♂️ <b>Pusat Administrator</b>`;
+              pesan += `\nDi sini, Anda dapat menambahkan admin dan mengelola administrator yang sudah ada.`;
+
+              const rows: ReturnType<typeof btn.text>[][] = [];
+              const addNext = (
+                list: { UserId: string | number | bigint }[],
+                i: number,
+              ): Promise<void> | undefined => {
+                const item = list[i];
+                if (!item) return;
+
+                return this.bot.api.getChat(Number(item.UserId)).then((r) => {
+                  rows.push([
+                    btn.text(
+                      r.last_name
+                        ? `${r.first_name} ${r.last_name}`
+                        : String(r.first_name),
+                      `admin_manage_${item.UserId}`,
+                    ),
+                    btn.text(`❌`, `admin_demote_${item.UserId}`),
+                  ]);
+
+                  return addNext(list, i + 1);
+                });
+              };
+
+              Database.orm.public.Administrators.all()
+                .then((adminList) => addNext(adminList, 0))
+                .then(() => {
+                  rows.push([btn.text(`➕ Add Admin`, `admin_add_none`)]);
                   this.ctx.editMessageText(pesan, {
+                    reply_markup: markup.inlineKeyboard(rows),
                     parse_mode: "HTML",
-                    reply_markup: markup.inlineKeyboard(keyb),
                   });
-                  return;
+                });
+            });
+            return;
+          }
+
+          if (act.startsWith("tgl:")) {
+            if (!admin.CanPromoteUser)
+              return this.ctx.answerCallbackQuery({
+                text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+                show_alert: true,
+              });
+
+            const perm = act.slice(4) as PermKey;
+            if (!PERMS.some(([key]) => key === perm))
+              return this.ctx.answerCallbackQuery();
+            if (!admin[perm])
+              return this.ctx.answerCallbackQuery({
+                text: "⚠️ Akses Ditolak!\nAnda tidak memiliki izin ini.",
+                show_alert: true,
+              });
+
+            const key = `promoteDraft_${chat?.id}`;
+            const draft = Cache.get(key) as PromoteDraft | undefined;
+            if (!draft || draft.target !== userId)
+              return this.ctx.answerCallbackQuery({
+                text: "⚠️ Sesi habis, mulai lagi dari Add Admin.",
+                show_alert: true,
+              });
+
+            draft.perms[perm] = !draft.perms[perm];
+            Cache.set(key, draft);
+
+            return this.ctx
+              .editMessageReplyMarkup({
+                reply_markup: markup.inlineKeyboard(
+                  this.buildPromoteKeyboard(admin, userId, draft.perms),
+                ),
+              })
+              .then(() => this.ctx.answerCallbackQuery())
+              .catch(() => {});
+          }
+
+          if (act === "promote") {
+            if (!admin.CanPromoteUser)
+              return this.ctx.answerCallbackQuery({
+                text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+                show_alert: true,
+              });
+
+            const key = `promoteDraft_${chat?.id}`;
+            const draft = Cache.get(key) as PromoteDraft | undefined;
+            if (!draft || draft.target !== userId)
+              return this.ctx.answerCallbackQuery({
+                text: "⚠️ Sesi habis, mulai lagi dari Add Admin.",
+                show_alert: true,
+              });
+
+            const granted = Object.fromEntries(
+              PERMS.map(([k]) => [k, Boolean(draft.perms[k] && admin[k])]),
+            );
+
+            return Database.orm.public.Administrators.where({ UserId: userId })
+              .first()
+              .then((exists) => {
+                if (exists)
+                  return this.ctx.answerCallbackQuery({
+                    text: "⚠️ Ada!\nPengguna sudah menjadi admin.",
+                    show_alert: true,
+                  });
+
+                return Database.orm.public.Administrators.create({
+                  UserId: userId,
+                  Promotor: String(chat?.id),
+                  ...granted,
+                }).then(() => {
+                  Cache.del(key);
+                  return this.ctx
+                    .editMessageText(
+                      `✅ <b>Berhasil!</b>\nPengguna telah diangkat menjadi admin.`,
+                      {
+                        parse_mode: "HTML",
+                      },
+                    )
+                    .then(() => this.ctx.answerCallbackQuery());
+                });
+              })
+              .catch((err) => {
+                console.error("Gagal promote admin:", err);
+                return this.ctx.answerCallbackQuery({
+                  text: "Gagal mengangkat ❌",
+                  show_alert: true,
+                });
+              });
+          }
+
+          Database.orm.public.Administrators.where({ UserId: String(userId) })
+            .first()
+            .then((adm) => {
+              if (!adm)
+                return this.ctx.answerCallbackQuery({
+                  text: "⚠️ Tidak Ada!\nPengguna mungkin bukan admin.",
+                  show_alert: true,
+                });
+              const PERMS = [
+                ["CanAddGroup", "Can Add Group"],
+                ["CanManageGroup", "Can Manage Group"],
+                ["CanGetRole", "Can Get Role"],
+                ["CanUseNext", "Can Use Next"],
+                ["CanStartSmode", "Can Start Smode"],
+                ["CanManageSmode", "Can Manage Smode"],
+                ["CanManageUbot", "Can Manage Ubot"],
+                ["CanUseReset", "Can Use Reset"],
+                ["CanPromoteUser", "Can Promote User"],
+                ["CanViewLog", "Can View Log"],
+                ["CanManageLog", "Can Manage Log"],
+              ] as const;
+              type PermKey = (typeof PERMS)[number][0];
+
+              const renderManage = (userId: string, row: typeof adm) =>
+                this.bot.api.getChat(userId).then((r) => {
+                  this.bot.api.getChat(adm.Promotor).then((promoter) => {
+                    const nama = r.last_name
+                      ? `${r.first_name} ${r.last_name}`
+                      : r.first_name;
+                    const pesan = `👮‍♂️ <b>${nama}</b>\nIzin mana yang akan Anda ubah untuk pengguna ini?\nPromoter: ${promoter.last_name ? `${promoter.first_name} ${promoter.last_name}` : promoter.first_name}`;
+
+                    const keyb = PERMS.map(([key, label]) => [
+                      btn.text(
+                        `${admin[key] ? "" : "🔒 "}${label} ${row[key] ? "✅" : "❌"}`,
+                        `admin_${key}_${userId}`,
+                      ),
+                    ]);
+                    keyb.push([btn.text(`⬅️ Kembali`, `admin_return_none`)]);
+
+                    return this.ctx.editMessageText(pesan, {
+                      parse_mode: "HTML",
+                      reply_markup: markup.inlineKeyboard(keyb),
+                    });
+                  });
+                });
+
+              if (act === "manage") {
+                this.ctx
+                  .editMessageText(`⏳ Memproses...`)
+                  .then(() => renderManage(String(userId), adm))
+                  .then(() => this.ctx.answerCallbackQuery())
+                  .catch((err) => console.error("Gagal manage admin:", err));
+                return;
+              }
+
+              if (PERMS.some(([key]) => key === act)) {
+                if (String(userId) === String(chat?.id))
+                  return this.ctx.answerCallbackQuery({
+                    text: "⚠️ Akses Ditolak!\nAnda tidak dapat mengubah diri Anda.",
+                    show_alert: true,
+                  });
+                if (adm.Promotor !== String(chat?.id))
+                  return this.ctx.answerCallbackQuery({
+                    text: "⚠️ Akses Ditolak!\nAnda bukan promoter pengguna ini.",
+                    show_alert: true,
+                  });
+
+                const perm = act as PermKey;
+                if (!admin[perm])
+                  return this.ctx.answerCallbackQuery({
+                    text: "⚠️ Akses Ditolak!\nAnda tidak punya izin ini, jadi tidak bisa mengubahnya.",
+                    show_alert: true,
+                  });
+
+                const target = String(userId);
+                const newValue = !adm[perm];
+
+                return Database.orm.public.Administrators.where({
+                  UserId: target,
+                })
+                  .update({ [perm]: newValue })
+                  .then(() =>
+                    renderManage(target, { ...adm, [perm]: newValue }),
+                  )
+                  .then(() =>
+                    this.ctx.answerCallbackQuery("Berhasil diubah ✅"),
+                  )
+                  .catch((err) => {
+                    if (
+                      String(err?.description).includes(
+                        "message is not modified",
+                      )
+                    )
+                      return this.ctx.answerCallbackQuery();
+                    console.error("Gagal toggle permission:", err);
+                    return this.ctx.answerCallbackQuery({
+                      text: "Gagal mengubah ❌",
+                      show_alert: true,
+                    });
+                  });
+              }
+
+              if (act === "demote" || act === "demoteC") {
+                if (String(userId) === String(chat?.id))
+                  return this.ctx.answerCallbackQuery({
+                    text: "⚠️ Akses Ditolak!\nAnda tidak dapat mencopot diri Anda sendiri.",
+                    show_alert: true,
+                  });
+                if (adm.Promotor !== String(chat?.id))
+                  return this.ctx.answerCallbackQuery({
+                    text: "⚠️ Akses Ditolak!\nAnda bukan promoter pengguna ini.",
+                    show_alert: true,
+                  });
+
+                const target = String(userId);
+
+                const getNama = () =>
+                  this.bot.api
+                    .getChat(target)
+                    .then((r) =>
+                      r.last_name
+                        ? `${r.first_name} ${r.last_name}`
+                        : String(r.first_name),
+                    )
+                    .catch(() => target);
+
+                if (act === "demote") {
+                  return getNama()
+                    .then((nama) => {
+                      const pesan = `⚠️ <b>Perhatian!</b>\nApakah Anda yakin ingin mencopot <b>${nama}</b> dari admin?`;
+                      const keyb = [
+                        [
+                          btn.text(`✅ Ya`, `admin_demoteC_${target}`),
+                          btn.text(`❌ Tidak`, `admin_return_none`),
+                        ],
+                      ];
+                      return this.ctx.editMessageText(pesan, {
+                        parse_mode: "HTML",
+                        reply_markup: markup.inlineKeyboard(keyb),
+                      });
+                    })
+                    .then(() => this.ctx.answerCallbackQuery())
+                    .catch((err) =>
+                      console.error("Gagal konfirmasi demote:", err),
+                    );
                 }
 
-                var pesan = `✏️ <b>Kelola Grup</b>`;
-                pesan += `\nPilih grup mana yang ingin Anda hapus.`;
-                let keyb = [];
+                return getNama()
+                  .then((nama) =>
+                    Database.orm.public.Administrators.where({ UserId: target })
+                      .delete()
+                      .then(() => {
+                        Cache.del(`sessionAddAdm_${target}`);
+                        Cache.del(`promoteDraft_${target}`);
 
+                        return this.ctx.editMessageText(
+                          `✅ <b>Berhasil!</b>\n<b>${nama}</b> telah dicopot dari admin.`,
+                          {
+                            parse_mode: "HTML",
+                            reply_markup: markup.inlineKeyboard([
+                              [btn.text(`⬅️ Kembali`, `admin_return_none`)],
+                            ]),
+                          },
+                        );
+                      }),
+                  )
+                  .then(() =>
+                    this.ctx.answerCallbackQuery("Berhasil dicopot ✅"),
+                  )
+                  .catch((err) => {
+                    console.error("Gagal demote admin:", err);
+                    return this.ctx.answerCallbackQuery({
+                      text: "Gagal mencopot ❌",
+                      show_alert: true,
+                    });
+                  });
+              }
+            });
+        }
+
+        var pola = /^group_(.*)_(.*)$/i;
+        if ((mc = pola.exec(cbData))) {
+          const type = mc[1];
+          const groupId = mc[2];
+
+          if (type === "return") {
+            Cache.del(`session_addgc_${chat?.id}`);
+            var pesan = `👥 <b>Kelola Grup</b>`;
+            pesan += `\nTambahkan grup atau kelola grup yang sudah ada.`;
+            let keyb = [];
+            keyb[0] = [btn.text(`✏️ Kelola Grup`, `group_manage_none`)];
+            keyb[1] = [btn.text(`➕ Tambah Grup`, `group_add_none`)];
+            this.ctx.editMessageText(pesan, {
+              parse_mode: "HTML",
+              reply_markup: markup.inlineKeyboard(keyb),
+            });
+            return;
+          }
+
+          if (type === "add") {
+            if (!admin.CanAddGroup)
+              return this.ctx.answerCallbackQuery({
+                text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+                show_alert: true,
+              });
+            var pesan = `❇️ <b>Grup Baru</b>`;
+            pesan += `\n• Silahkan kirim username grup tersebut.`;
+            pesan += `\n• Jika grup tersebut privat, Anda harus menambahkan salah 1 userbot ke sana.`;
+            let keyb = [];
+            keyb[0] = [btn.text(`⬅️ Return`, `group_return_none`)];
+
+            Cache.set(`session_addgc_${chat?.id}`, true);
+            this.ctx.editMessageText(pesan, {
+              parse_mode: "HTML",
+              reply_markup: markup.inlineKeyboard(keyb),
+            });
+            return;
+          }
+
+          if (type === "manage") {
+            if (!admin.CanManageGroup)
+              return this.ctx.answerCallbackQuery({
+                text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+                show_alert: true,
+              });
+            this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+              var pesan = `✏️ <b>Kelola Grup</b>`;
+              pesan += `\nPilih grup mana yang ingin Anda hapus.`;
+              let keyb = [];
+
+              Database.orm.public.Group.all().then((db_result) => {
+                if (db_result.length <= 0)
+                  return this.ctx.answerCallbackQuery({
+                    text: `⚠️ Tidak ada grup.`,
+                    show_alert: true,
+                  });
                 for (var i = 0; i < db_result.length; i++) {
                   keyb.push([
                     btn.text(db_result[i].GroupName, `nothing`),
@@ -600,656 +1124,738 @@ export class BotHandle {
                 });
               });
             });
-        });
-        return;
-      }
-    }
+            return;
+          }
 
-    var pola = /^next_(.*)_(.*)$/i;
-    if ((mc = pola.exec(cbData))) {
-      const type = mc[1];
-      const method = mc[2];
-
-      if (type === "cancel") {
-        this.ctx.deleteMessage();
-        if (!Cache.get(`join`)) {
-          this.ctx.answerCallbackQuery({ text: `Nothing`, show_alert: true });
-          return;
-        }
-        Cache.del(`join`);
-        Utils.sendMessageToAdmin(
-          this.bot,
-          `❌ <b>Pendaftaran Dibatalkan!</b>\nUserbot tidak akan bergabung dalam permainan.`,
-        );
-        return;
-      }
-
-      if (type === "refresh") {
-        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
-          const updateAllGroupNames = () => {
-            Database.orm.public.Group.select("GroupId")
-              .all()
-              .then((dbResult) => {
-                let successCount = 0;
-                let failCount = 0;
-
-                const processGroup = (groupIndex: number): void => {
-                  if (groupIndex >= dbResult.length) {
-                    if (successCount > 0) {
-                      let keyb = [];
-                      keyb[0] = [btn.text(`⬅️ Kembali`, `next_return_none`)];
-                      this.ctx.editMessageText(
-                        `✅ <b>Berhasil!</b>\n${successCount} grup berhasil diperbarui.` +
-                          (failCount > 0
-                            ? `\n⚠️ ${failCount} grup gagal diperbarui (tidak ada userbot yang bisa mengakses).`
-                            : ""),
-                        {
-                          parse_mode: "HTML",
-                          reply_markup: markup.inlineKeyboard(keyb),
-                        },
-                      );
-                      this.ctx.answerCallbackQuery().catch(() => {});
-                    } else {
-                      this.ctx.editMessageText(
-                        `❌ <b>Gagal!</b>\nTidak ada userbot yang bisa mendapatkan info grup tersebut, salah 1 grup tidak tersedia atau userbot tidak berada dalam grup tersebut.`,
-                        { parse_mode: "HTML" },
-                      );
-                    }
-                    return;
-                  }
-
-                  const groupId = dbResult[groupIndex].GroupId;
-
-                  this.manager
-                    .firstSuccess((ref) =>
-                      this.manager.getGroupInfo(ref, groupId),
-                    )
-                    .then((info) =>
-                      Database.orm.public.Group.where({
-                        GroupId: groupId,
-                      }).update({ GroupName: String(info.title) }),
-                    )
-                    .then(() => {
-                      successCount++;
-                    })
-                    .catch(() => {
-                      failCount++;
-                    })
-                    .finally(() => processGroup(groupIndex + 1));
-                };
-
-                processGroup(0);
+          if (type === "del") {
+            if (!admin.CanManageGroup)
+              return this.ctx.answerCallbackQuery({
+                text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+                show_alert: true,
               });
-          };
+            this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+              Database.orm.public.Group.where({ GroupId: groupId })
+                .delete()
+                .then(() => {
+                  Database.orm.public.Group.all().then((db_result) => {
+                    if (db_result.length <= 0) {
+                      var pesan = `👥 <b>Kelola Grup</b>`;
+                      pesan += `\nTambahkan grup atau kelola grup yang sudah ada.`;
+                      let keyb = [];
+                      keyb[0] = [
+                        btn.text(`✏️ Kelola Grup`, `group_manage_none`),
+                      ];
+                      keyb[1] = [btn.text(`➕ Tambah Grup`, `group_add_none`)];
+                      this.ctx.editMessageText(pesan, {
+                        parse_mode: "HTML",
+                        reply_markup: markup.inlineKeyboard(keyb),
+                      });
+                      return;
+                    }
 
-          updateAllGroupNames();
-        });
-        return;
-      }
+                    var pesan = `✏️ <b>Kelola Grup</b>`;
+                    pesan += `\nPilih grup mana yang ingin Anda hapus.`;
+                    let keyb = [];
 
-      if (type === "return") {
-        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
-          var pesan = `👥 <b>Pilih Grup</b>`;
-          pesan += `\nPilih grup di mana Anda ingin mengirim perintah /next`;
-          pesan += `\nNama grup tidak terbaru? Tekan tombol refresh.`;
-          Database.orm.public.Group.all().then((db_result) => {
-            let keyb = [];
+                    for (var i = 0; i < db_result.length; i++) {
+                      keyb.push([
+                        btn.text(db_result[i].GroupName, `nothing`),
+                        btn.text(`🗑`, `group_del_${db_result[i].GroupId}`),
+                      ]);
+                    }
+                    keyb.push([btn.text(`⬅️ Return`, `group_return_none`)]);
 
-            for (var i = 0; i < db_result.length; i++) {
-              keyb.push([
-                btn.text(
-                  db_result[i].GroupName,
-                  `next_${db_result[i].GroupId}_method`,
-                ),
-              ]);
+                    this.ctx.editMessageText(pesan, {
+                      parse_mode: "HTML",
+                      reply_markup: markup.inlineKeyboard(keyb),
+                    });
+                  });
+                });
+            });
+            return;
+          }
+        }
+
+        var pola = /^next_(.*)_(.*)$/i;
+        if ((mc = pola.exec(cbData))) {
+          if (!admin.CanUseNext)
+            return this.ctx.answerCallbackQuery({
+              text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+              show_alert: true,
+            });
+          const type = mc[1];
+          const method = mc[2];
+
+          if (type === "cancel") {
+            this.ctx.deleteMessage();
+            if (!Cache.get(`join`)) {
+              this.ctx.answerCallbackQuery({
+                text: `Nothing`,
+                show_alert: true,
+              });
+              return;
             }
-            keyb.push([btn.text(`🔄 Refresh`, `next_refresh_none`)]);
+            Cache.del(`join`);
+            Utils.sendMessageToAdmin(
+              this.bot,
+              `❌ <b>Pendaftaran Dibatalkan!</b>\nUserbot tidak akan bergabung dalam permainan.`,
+            );
+            return;
+          }
+
+          if (type === "refresh") {
+            this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+              const updateAllGroupNames = () => {
+                Database.orm.public.Group.select("GroupId")
+                  .all()
+                  .then((dbResult) => {
+                    let successCount = 0;
+                    let failCount = 0;
+
+                    const processGroup = (groupIndex: number): void => {
+                      if (groupIndex >= dbResult.length) {
+                        if (successCount > 0) {
+                          let keyb = [];
+                          keyb[0] = [
+                            btn.text(`⬅️ Kembali`, `next_return_none`),
+                          ];
+                          this.ctx.editMessageText(
+                            `✅ <b>Berhasil!</b>\n${successCount} grup berhasil diperbarui.` +
+                              (failCount > 0
+                                ? `\n⚠️ ${failCount} grup gagal diperbarui (tidak ada userbot yang bisa mengakses).`
+                                : ""),
+                            {
+                              parse_mode: "HTML",
+                              reply_markup: markup.inlineKeyboard(keyb),
+                            },
+                          );
+                          this.ctx.answerCallbackQuery().catch(() => {});
+                        } else {
+                          this.ctx.editMessageText(
+                            `❌ <b>Gagal!</b>\nTidak ada userbot yang bisa mendapatkan info grup tersebut, salah 1 grup tidak tersedia atau userbot tidak berada dalam grup tersebut.`,
+                            { parse_mode: "HTML" },
+                          );
+                        }
+                        return;
+                      }
+
+                      const groupId = dbResult[groupIndex].GroupId;
+
+                      this.manager
+                        .firstSuccess((ref) =>
+                          this.manager.getGroupInfo(ref, groupId),
+                        )
+                        .then((info) =>
+                          Database.orm.public.Group.where({
+                            GroupId: groupId,
+                          }).update({ GroupName: String(info.title) }),
+                        )
+                        .then(() => {
+                          successCount++;
+                        })
+                        .catch(() => {
+                          failCount++;
+                        })
+                        .finally(() => processGroup(groupIndex + 1));
+                    };
+
+                    processGroup(0);
+                  });
+              };
+
+              updateAllGroupNames();
+            });
+            return;
+          }
+
+          if (type === "return") {
+            this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+              var pesan = `👥 <b>Pilih Grup</b>`;
+              pesan += `\nPilih grup di mana Anda ingin mengirim perintah /next`;
+              pesan += `\nNama grup tidak terbaru? Tekan tombol refresh.`;
+              Database.orm.public.Group.all().then((db_result) => {
+                let keyb = [];
+
+                for (var i = 0; i < db_result.length; i++) {
+                  keyb.push([
+                    btn.text(
+                      db_result[i].GroupName,
+                      `next_${db_result[i].GroupId}_method`,
+                    ),
+                  ]);
+                }
+                keyb.push([btn.text(`🔄 Refresh`, `next_refresh_none`)]);
+
+                this.ctx.editMessageText(pesan, {
+                  parse_mode: "HTML",
+                  reply_markup: markup.inlineKeyboard(keyb),
+                });
+                this.ctx.answerCallbackQuery().catch(() => {});
+              });
+            });
+            return;
+          }
+
+          if (method === "method") {
+            var pesan = `⏩ <b>Metode Bergabung</b>`;
+            pesan += `\nPilih metode bergabung permainan`;
+            pesan += `\n• Next - userbot akan mengirim perintah /next ke grup tujuan.`;
+            pesan += `\n• Direct - userbot akan menunggu pendaftaran dibuka dalam grup tujuan.`;
+            let keyb = [];
+            keyb[0] = [
+              btn.text(`Next`, `next_${mc[1]}_send`),
+              btn.text(`Direct`, `next_${mc[1]}_direct`),
+            ];
+            keyb[1] = [btn.text(`⬅️ Kembali`, `next_return_none`)];
 
             this.ctx.editMessageText(pesan, {
               parse_mode: "HTML",
               reply_markup: markup.inlineKeyboard(keyb),
             });
             this.ctx.answerCallbackQuery().catch(() => {});
-          });
-        });
-        return;
-      }
-
-      if (method === "method") {
-        var pesan = `⏩ <b>Metode Bergabung</b>`;
-        pesan += `\nPilih metode bergabung permainan`;
-        pesan += `\n• Next - userbot akan mengirim perintah /next ke grup tujuan.`;
-        pesan += `\n• Direct - userbot akan menunggu pendaftaran dibuka dalam grup tujuan.`;
-        let keyb = [];
-        keyb[0] = [
-          btn.text(`Next`, `next_${mc[1]}_send`),
-          btn.text(`Direct`, `next_${mc[1]}_direct`),
-        ];
-        keyb[1] = [btn.text(`⬅️ Kembali`, `next_return_none`)];
-
-        this.ctx.editMessageText(pesan, {
-          parse_mode: "HTML",
-          reply_markup: markup.inlineKeyboard(keyb),
-        });
-        this.ctx.answerCallbackQuery().catch(() => {});
-        return;
-      }
-
-      if (method === "direct") {
-        const target = mc[1];
-        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
-          Cache.set(`join`, "direct");
-          Cache.set(`groupTarget`, target);
-          Database.orm.public.DisabledUserBot.select("UserId")
-            .all()
-            .then((db_result) => {
-              db_result.map((id) => {
-                Cache.set(`userbot_${id}_disabled`, true);
-              });
-              Database.orm.public.Group.where({ GroupId: target })
-                .select("GroupName")
-                .first()
-                .then((db_result) => {
-                  Cache.set(`groupName`, db_result?.GroupName);
-                  var pesan = `✅ <b>Metode Diatur!</b>`;
-                  pesan += `\nUserbot akan bergabung dalam permainan ketika pendaftaran dibuka di ${db_result?.GroupName}`;
-                  let keyb: any[] = [];
-                  keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
-
-                  this.ctx.deleteMessage();
-                  Utils.sendMessageToAdmin(this.bot, pesan, keyb);
-                });
-            });
-        });
-        return;
-      }
-
-      if (method === "send") {
-        const target = mc[1];
-        this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
-          Cache.set(`groupTarget`, target);
-          Cache.set(`join`, "next");
-
-          Database.orm.public.DisabledUserBot.select("UserId")
-            .all()
-            .then((db_result) => {
-              db_result.forEach((row) => {
-                Cache.set(`userbot_${row.UserId}_disabled`, true);
-              });
-
-              return Database.orm.public.Group.where({ GroupId: target })
-                .select("GroupName")
-                .first()
-                .then((db_result) => {
-                  Cache.set(`groupName`, db_result?.GroupName);
-
-                  const sendAll = async () => {
-                    for (const ref of this.manager.getRefs()) {
-                      const user = this.manager.getUser(ref.userId);
-                      if (!user) continue;
-                      if (Cache.get(`userbot_${user.id}_disabled`)) continue;
-                      try {
-                        await this.manager.sendMessage(ref, target, "/next");
-                      } catch (err: any) {
-                        const errMsg = String(err?.message).includes(
-                          `You're banned from sending messages in supergroups/channels.`,
-                        )
-                          ? `userbot mungkin dibatasi Telegram untuk mengirim pesan. Userbot akan mencoba bergabung saat ada pendaftaran dimulai.`
-                          : `userbot mungkin diblokir atau belum bergabung dalam grup.`;
-                        Utils.sendMessageToAdmin(
-                          this.bot,
-                          `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(user.id)}'>${user.fullName}</a> gagal mengirim perintah /next ke grup, ${errMsg}`,
-                        );
-                      }
-                    }
-
-                    var pesan = `✅ <b>Perintah Terkirim!</b>`;
-                    pesan += `\nPerintah /next telah dikirim ke grup tujuan - ${db_result?.GroupName}`;
-                    let keyb: any[] = [];
-                    keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
-
-                    this.ctx.deleteMessage();
-                    Utils.sendMessageToAdmin(this.bot, pesan, keyb);
-                  };
-
-                  sendAll();
-                });
-            });
-        });
-        return;
-      }
-    }
-
-    var pola = /^userbot_(\d+)$/i;
-    if ((mc = pola.exec(cbData))) {
-      const userId = mc[1];
-      const isDisabled = Cache.get(`userbot_${userId}_disabled`);
-      const newDisabled = !isDisabled;
-
-      if (newDisabled) {
-        Database.orm.public.DisabledUserBot.create({
-          UserId: userId,
-        });
-      } else {
-        Database.orm.public.DisabledUserBot.where({
-          UserId: userId,
-        }).delete();
-      }
-
-      Cache.set(`userbot_${userId}_disabled`, newDisabled);
-
-      const message = this.ctx.callbackQuery?.message!;
-      const currentKeyboard = message?.reply_markup?.inline_keyboard;
-
-      if (!currentKeyboard) {
-        this.ctx.answerCallbackQuery({
-          text: "Gagal update, keyboard tidak ditemukan.",
-        });
-        return;
-      }
-
-      const newKeyboard = currentKeyboard.map((row) => {
-        return row.map((button) => {
-          if (
-            "callback_data" in button &&
-            button.callback_data === `userbot_${userId}`
-          ) {
-            const nameOnly = button.text.replace(/\s*[✅❌]\s*$/, "").trim();
-            return {
-              ...button,
-              text: `${nameOnly} ${!newDisabled ? "✅" : "❌"}`,
-            };
+            return;
           }
-          return button;
-        });
+
+          if (method === "direct") {
+            const target = mc[1];
+            this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+              Cache.set(`join`, "direct");
+              Cache.set(`groupTarget`, target);
+              Database.orm.public.DisabledUserBot.select("UserId")
+                .all()
+                .then((db_result) => {
+                  db_result.map((id) => {
+                    Cache.set(`userbot_${id}_disabled`, true);
+                  });
+                  Database.orm.public.Group.where({ GroupId: target })
+                    .select("GroupName")
+                    .first()
+                    .then((db_result) => {
+                      Cache.set(`groupName`, db_result?.GroupName);
+                      var pesan = `✅ <b>Metode Diatur!</b>`;
+                      pesan += `\nUserbot akan bergabung dalam permainan ketika pendaftaran dibuka di ${db_result?.GroupName}`;
+                      let keyb: any[] = [];
+                      keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
+
+                      this.ctx.deleteMessage();
+                      Utils.sendMessageToAdmin(this.bot, pesan, keyb);
+                    });
+                });
+            });
+            return;
+          }
+
+          if (method === "send") {
+            const target = mc[1];
+            this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
+              Cache.set(`groupTarget`, target);
+              Cache.set(`join`, "next");
+
+              Database.orm.public.DisabledUserBot.select("UserId")
+                .all()
+                .then((db_result) => {
+                  db_result.forEach((row) => {
+                    Cache.set(`userbot_${row.UserId}_disabled`, true);
+                  });
+
+                  return Database.orm.public.Group.where({ GroupId: target })
+                    .select("GroupName")
+                    .first()
+                    .then((db_result) => {
+                      Cache.set(`groupName`, db_result?.GroupName);
+
+                      const sendAll = async () => {
+                        for (const ref of this.manager.getRefs()) {
+                          const user = this.manager.getUser(ref.userId);
+                          if (!user) continue;
+                          if (Cache.get(`userbot_${user.id}_disabled`))
+                            continue;
+                          try {
+                            await this.manager.sendMessage(
+                              ref,
+                              target,
+                              "/next",
+                            );
+                          } catch (err: any) {
+                            const errMsg = String(err?.message).includes(
+                              `You're banned from sending messages in supergroups/channels.`,
+                            )
+                              ? `userbot mungkin dibatasi Telegram untuk mengirim pesan. Userbot akan mencoba bergabung saat ada pendaftaran dimulai.`
+                              : `userbot mungkin diblokir atau belum bergabung dalam grup.`;
+                            Utils.sendMessageToAdmin(
+                              this.bot,
+                              `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(user.id)}'>${user.fullName}</a> gagal mengirim perintah /next ke grup, ${errMsg}`,
+                            );
+                          }
+                        }
+
+                        var pesan = `✅ <b>Perintah Terkirim!</b>`;
+                        pesan += `\nPerintah /next telah dikirim ke grup tujuan - ${db_result?.GroupName}`;
+                        let keyb: any[] = [];
+                        keyb[0] = [btn.text(`❌ Batalkan`, `next_cancel_none`)];
+
+                        this.ctx.deleteMessage();
+                        Utils.sendMessageToAdmin(this.bot, pesan, keyb);
+                      };
+
+                      sendAll();
+                    });
+                });
+            });
+            return;
+          }
+        }
+
+        var pola = /^userbot_(\d+)$/i;
+        if ((mc = pola.exec(cbData))) {
+          if (!admin.CanManageUbot)
+            return this.ctx.answerCallbackQuery({
+              text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+              show_alert: true,
+            });
+          const userId = mc[1];
+          const isDisabled = Cache.get(`userbot_${userId}_disabled`);
+          const newDisabled = !isDisabled;
+
+          if (newDisabled) {
+            Database.orm.public.DisabledUserBot.create({
+              UserId: userId,
+            });
+          } else {
+            Database.orm.public.DisabledUserBot.where({
+              UserId: userId,
+            }).delete();
+          }
+
+          Cache.set(`userbot_${userId}_disabled`, newDisabled);
+
+          const message = this.ctx.callbackQuery?.message!;
+          const currentKeyboard = message?.reply_markup?.inline_keyboard;
+
+          if (!currentKeyboard) {
+            this.ctx.answerCallbackQuery({
+              text: "Gagal update, keyboard tidak ditemukan.",
+            });
+            return;
+          }
+
+          const newKeyboard = currentKeyboard.map((row) => {
+            return row.map((button) => {
+              if (
+                "callback_data" in button &&
+                button.callback_data === `userbot_${userId}`
+              ) {
+                const nameOnly = button.text
+                  .replace(/\s*[✅❌]\s*$/, "")
+                  .trim();
+                return {
+                  ...button,
+                  text: `${nameOnly} ${!newDisabled ? "✅" : "❌"}`,
+                };
+              }
+              return button;
+            });
+          });
+
+          this.ctx
+            .editMessageReplyMarkup({
+              reply_markup: { inline_keyboard: newKeyboard },
+            })
+            .catch(() => {
+              this.ctx.editMessageText(`Something went wrong...`).catch(() => {
+                this.ctx.reply(`Something went wrong...`);
+              });
+            });
+          this.ctx.answerCallbackQuery().catch(() => {});
+          return;
+        }
+
+        var pola = /afkmode_(.*)_(.*)/i;
+        if ((mc = pola.exec(cbData))) {
+          if (!admin.CanManageSmode)
+            return this.ctx.answerCallbackQuery({
+              text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+              show_alert: true,
+            });
+          const type = mc[1];
+
+          if (type === "return") {
+            if (String(Cache.get(`mode`)) !== "afkmode")
+              return this.ctx.deleteMessage();
+            var pesan = `🧨 <b>Suck Mode</b>`;
+            pesan += `\nSuck mode sedang aktif di ${Cache.get(`groupName`)}, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
+            pesan += `\n\n• 🎎 Afk Semua - membuat semua userbot afk hingga permainan berakhir.`;
+            pesan += `\n• 🔁 Continuous - aktifkan fitur ini untuk membuat smode berjalan selama mungkin tanpa bergantung pada jumlah hari yang ditentukan.`;
+
+            let keyb: any[] = [];
+            keyb.push([
+              btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
+              btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
+            ]);
+            keyb.push(...this.buildRoleButtons("afkmode_role"));
+            keyb.push([
+              btn.text(
+                `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
+                `afkmode_afkrl_none`,
+              ),
+              btn.text(
+                `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
+                `afkmode_conti_none`,
+              ),
+            ]);
+            keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
+
+            this.ctx
+              .editMessageText(pesan, {
+                parse_mode: "HTML",
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "afkrl") {
+            if (String(Cache.get(`mode`)) !== "afkmode")
+              return this.ctx.deleteMessage();
+            if (Cache.get(`allroleAfk`)) {
+              Cache.del(`allroleAfk`);
+            } else {
+              Cache.set(`allroleAfk`, true);
+            }
+            let keyb: any[] = [];
+            keyb.push([
+              btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
+              btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
+            ]);
+            keyb.push(...this.buildRoleButtons("afkmode_role"));
+            keyb.push([
+              btn.text(
+                `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
+                `afkmode_afkrl_none`,
+              ),
+              btn.text(
+                `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
+                `afkmode_conti_none`,
+              ),
+            ]);
+            keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
+
+            this.ctx
+              .editMessageReplyMarkup({
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "conti") {
+            if (String(Cache.get(`mode`)) !== "afkmode")
+              return this.ctx.deleteMessage();
+            if (Cache.get(`continu`)) {
+              Cache.del(`join`);
+              Cache.del(`continu`);
+            } else {
+              Cache.set(`join`, "direct");
+              Cache.set(`continu`, true);
+            }
+            let keyb: any[] = [];
+            keyb.push([
+              btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
+              btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
+            ]);
+            keyb.push(...this.buildRoleButtons("afkmode_role"));
+            keyb.push([
+              btn.text(
+                `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
+                `afkmode_afkrl_none`,
+              ),
+              btn.text(
+                `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
+                `afkmode_conti_none`,
+              ),
+            ]);
+            keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
+
+            this.ctx
+              .editMessageReplyMarkup({
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "day") {
+            if (String(Cache.get(`mode`)) !== "afkmode")
+              return this.ctx.deleteMessage();
+            if (String(Cache.get(`mode`)) === "afkmode") {
+              this.ctx.deleteMessage();
+              this.ctx.answerCallbackQuery({
+                text: "⚠️ Suck mode sudah aktif.",
+                show_alert: true,
+              });
+              return;
+            }
+            var pesan = `❇️ <b>Masukkan Angka</b>`;
+            pesan += `\nBerapa lama Anda ingin ngehama?\nSaat ini: ${Cache.get(`afkmodeDur`)} hari.`;
+            let keyb = [];
+            keyb[0] = [btn.text(`❌ Batal`, `afkmode_return_none`)];
+
+            Cache.set(`smode_session_${chat?.id}`, true);
+            this.ctx
+              .editMessageText(pesan, {
+                parse_mode: "HTML",
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "role") {
+            if (String(Cache.get(`mode`)) !== "afkmode")
+              return this.ctx.deleteMessage();
+            if (!Cache.get(`afkmode${mc[2]}`)) {
+              Cache.set(`afkmode${mc[2]}`, true);
+            } else {
+              Cache.del(`afkmode${mc[2]}`);
+            }
+            let keyb: any[] = [];
+            keyb.push([
+              btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
+              btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
+            ]);
+            keyb.push(...this.buildRoleButtons("afkmode_role"));
+            keyb.push([
+              btn.text(
+                `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
+                `afkmode_afkrl_none`,
+              ),
+              btn.text(
+                `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
+                `afkmode_conti_none`,
+              ),
+            ]);
+            keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
+
+            this.ctx
+              .editMessageReplyMarkup({
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "rlset") {
+            if (String(Cache.get(`mode`)) === "afkmode") {
+              this.ctx.deleteMessage();
+              this.ctx.answerCallbackQuery({
+                text: "⚠️ Suck mode sudah aktif.",
+                show_alert: true,
+              });
+              return;
+            }
+            var pesan = `🎎 <b>Peran</b>`;
+            pesan += `\nApakah Anda ingin peran berikut dikendalikan bot atau manual? Anda juga dapat mengubahnya nanti.`;
+
+            let keyb: any[] = [];
+            keyb.push(...this.buildRoleButtons("afkmode_rolst"));
+            keyb.push([btn.text(`❌ Batal`, `cancel_`)]);
+            keyb.push([
+              btn.text(`⬅️ Kembali`, `afkmode_election_none`),
+              btn.text(`Aktifkan ➡️`, `afkmode_active_none`),
+            ]);
+
+            this.ctx
+              .editMessageText(pesan, {
+                parse_mode: "HTML",
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "rolst") {
+            if (String(Cache.get(`mode`)) === "afkmode") {
+              this.ctx.deleteMessage();
+              this.ctx.answerCallbackQuery({
+                text: "⚠️ Suck mode sudah aktif.",
+                show_alert: true,
+              });
+              return;
+            }
+            if (!Cache.get(`afkmode${mc[2]}`)) {
+              Cache.set(`afkmode${mc[2]}`, true);
+            } else {
+              Cache.del(`afkmode${mc[2]}`);
+            }
+            let keyb: any[] = [];
+            keyb.push(...this.buildRoleButtons("afkmode_rolst"));
+            keyb.push([btn.text(`❌ Batal`, `cancel_`)]);
+            keyb.push([
+              btn.text(`⬅️ Kembali`, `afkmode_election_none`),
+              btn.text(`Aktifkan ➡️`, `afkmode_active_none`),
+            ]);
+
+            this.ctx
+              .editMessageReplyMarkup({
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "vote") {
+            if (Cache.get(`vote_type`) === mc[2])
+              return this.ctx.answerCallbackQuery();
+            Cache.set(`vote_type`, mc[2]);
+            let keyb = [];
+            keyb[0] = [
+              btn.text(
+                `Gunakan ${mc[2] === "yes" ? "✅" : ""}`,
+                `afkmode_vote_yes`,
+              ),
+              btn.text(
+                `Lewati ${mc[2] === "no" ? "✅" : ""}`,
+                `afkmode_vote_no`,
+              ),
+            ];
+            if (!Cache.get(`mode`)) {
+              keyb[1] = [
+                btn.text(`❌ Batal`, !Cache.get(`mode`) ? `cancel_` : `close_`),
+                btn.text(
+                  Cache.get(`mode`) ? `Simpan ➡️` : `Lanjut ➡️`,
+                  Cache.get(`mode`)
+                    ? `afkmode_active_none`
+                    : `afkmode_rlset_none`,
+                ),
+              ];
+            } else {
+              keyb[1] = [btn.text(`⬅️ Kembali`, `afkmode_return_none`)];
+            }
+
+            Cache.set(`useVote`, mc[2]);
+            this.ctx
+              .editMessageReplyMarkup({
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "election") {
+            if (!Cache.get(`useVote`)) {
+              Cache.set(`useVote`, "yes");
+            }
+            var pesan = `🗳 <b>Mode Pemilihan</b>`;
+            pesan += `\nApakah Anda ingin melewati pemilihan? jika ya, maka semua userbot akan memilih target acak dari daftar userbot (target ditentukan apabila dia tidak memiliki peran aktif).`;
+            let keyb = [];
+            keyb[0] = [
+              btn.text(
+                `Gunakan ${Cache.get(`useVote`) === "yes" ? "✅" : ""}`,
+                `afkmode_vote_yes`,
+              ),
+              btn.text(
+                `Lewati ${Cache.get(`useVote`) === "no" ? "✅" : ""}`,
+                `afkmode_vote_no`,
+              ),
+            ];
+            if (!Cache.get(`mode`)) {
+              keyb[1] = [
+                btn.text(`❌ Batal`, !Cache.get(`mode`) ? `cancel_` : `close_`),
+                btn.text(
+                  Cache.get(`mode`) ? `Simpan ➡️` : `Lanjut ➡️`,
+                  Cache.get(`mode`)
+                    ? `afkmode_active_none`
+                    : `afkmode_rlset_none`,
+                ),
+              ];
+            } else {
+              keyb[1] = [btn.text(`⬅️ Kembali`, `afkmode_return_none`)];
+            }
+
+            this.ctx
+              .editMessageText(pesan, {
+                parse_mode: "HTML",
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "active") {
+            if (String(Cache.get(`mode`)) === "afkmode") {
+              this.ctx.deleteMessage();
+              this.ctx.answerCallbackQuery({
+                text: "⚠️ Suck mode sudah aktif.",
+                show_alert: true,
+              });
+              return;
+            }
+            if (!Cache.get(`useVote`))
+              return this.ctx.answerCallbackQuery({
+                text: "⚠️ Pilih mode pemilihan terlebih dahulu.",
+                show_alert: true,
+              });
+            Cache.set(`mode`, "afkmode");
+            this.ctx.deleteMessage().catch(() => {});
+            Utils.sendMessageToAdmin(
+              this.bot,
+              `✅ <b>Suck Mode Diaktifkan!</b>\nSuck mode telah diaktifkan di ${Cache.get(`groupName`)}, userbot akan bertahan hingga hari ke-${Cache.get(`afkmodeDur`)}, Anda akan diberitahu tentang peran semua userbot.`,
+            );
+            return;
+          }
+
+          if (type === "disable") {
+            if (String(Cache.get(`mode`)) !== "afkmode") {
+              this.ctx.deleteMessage();
+              this.ctx.answerCallbackQuery({
+                text: "⚠️ Suck mode tidak aktif.",
+                show_alert: true,
+              });
+              return;
+            }
+            var pesan = `⚠️ <b>Perhatian!</b>\nApakah Anda yakin ingin menonaktifkan suck mode di ${Cache.get(`groupName`)}?`;
+            let keyb = [];
+            keyb[0] = [
+              btn.text(`✅ Ya`, `afkmode_disableC_none`),
+              btn.text(`❌ Tidak`, `afkmode_return_none`),
+            ];
+
+            this.ctx
+              .editMessageText(pesan, {
+                parse_mode: "HTML",
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "disableC") {
+            if (String(Cache.get(`mode`)) !== "afkmode") {
+              this.ctx.deleteMessage();
+              this.ctx.answerCallbackQuery({
+                text: "⚠️ Suck mode tidak aktif.",
+                show_alert: true,
+              });
+              return;
+            }
+            UserBots.clearSmode();
+            this.ctx.deleteMessage();
+            Utils.sendMessageToAdmin(
+              this.bot,
+              `✅ <b>Suck Mode Dimatikan!</b>\nUserbot akan afk hingga permainan berakhir.`,
+            );
+          }
+        }
       });
-
-      this.ctx
-        .editMessageReplyMarkup({
-          reply_markup: { inline_keyboard: newKeyboard },
-        })
-        .catch(() => {
-          this.ctx.editMessageText(`Something went wrong...`).catch(() => {
-            this.ctx.reply(`Something went wrong...`);
-          });
-        });
-      this.ctx.answerCallbackQuery().catch(() => {});
-      return;
-    }
-
-    var pola = /afkmode_(.*)_(.*)/i;
-    if ((mc = pola.exec(cbData))) {
-      const type = mc[1];
-
-      if (type === "return") {
-        if (String(Cache.get(`mode`)) !== "afkmode")
-          return this.ctx.deleteMessage();
-        var pesan = `🧨 <b>Suck Mode</b>`;
-        pesan += `\nSuck mode sedang aktif di ${Cache.get(`groupName`)}, apakah Anda ingin menonaktifkannya?\n\nTekan tombol berisikan peran jika Anda ingin peran tersebut otomatis berjalan.\nHari diatur: ${Cache.get(`afkmodeDur`)}`;
-        pesan += `\n\n• 🎎 Afk Semua - membuat semua userbot afk hingga permainan berakhir.`;
-        pesan += `\n• 🔁 Continuous - aktifkan fitur ini untuk membuat smode berjalan selama mungkin tanpa bergantung pada jumlah hari yang ditentukan.`;
-
-        let keyb: any[] = [];
-        keyb.push([
-          btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
-          btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
-        ]);
-        keyb.push(...this.buildRoleButtons("afkmode_role"));
-        keyb.push([
-          btn.text(
-            `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
-            `afkmode_afkrl_none`,
-          ),
-          btn.text(
-            `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
-            `afkmode_conti_none`,
-          ),
-        ]);
-        keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
-
-        this.ctx
-          .editMessageText(pesan, {
-            parse_mode: "HTML",
-            reply_markup: markup.inlineKeyboard(keyb),
-          })
-          .catch(() => {});
-        this.ctx.answerCallbackQuery().catch(() => {});
-        return;
-      }
-
-      if (type === "afkrl") {
-        if (String(Cache.get(`mode`)) !== "afkmode")
-          return this.ctx.deleteMessage();
-        if (Cache.get(`allroleAfk`)) {
-          Cache.del(`allroleAfk`);
-        } else {
-          Cache.set(`allroleAfk`, true);
-        }
-        let keyb: any[] = [];
-        keyb.push([
-          btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
-          btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
-        ]);
-        keyb.push(...this.buildRoleButtons("afkmode_role"));
-        keyb.push([
-          btn.text(
-            `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
-            `afkmode_afkrl_none`,
-          ),
-          btn.text(
-            `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
-            `afkmode_conti_none`,
-          ),
-        ]);
-        keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
-
-        this.ctx
-          .editMessageReplyMarkup({
-            reply_markup: markup.inlineKeyboard(keyb),
-          })
-          .catch(() => {});
-        this.ctx.answerCallbackQuery().catch(() => {});
-        return;
-      }
-
-      if (type === "conti") {
-        if (String(Cache.get(`mode`)) !== "afkmode")
-          return this.ctx.deleteMessage();
-        if (Cache.get(`continu`)) {
-          Cache.del(`join`);
-          Cache.del(`continu`);
-        } else {
-          Cache.set(`join`, "direct");
-          Cache.set(`continu`, true);
-        }
-        let keyb: any[] = [];
-        keyb.push([
-          btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
-          btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
-        ]);
-        keyb.push(...this.buildRoleButtons("afkmode_role"));
-        keyb.push([
-          btn.text(
-            `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
-            `afkmode_afkrl_none`,
-          ),
-          btn.text(
-            `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
-            `afkmode_conti_none`,
-          ),
-        ]);
-        keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
-
-        this.ctx
-          .editMessageReplyMarkup({
-            reply_markup: markup.inlineKeyboard(keyb),
-          })
-          .catch(() => {});
-        this.ctx.answerCallbackQuery().catch(() => {});
-        return;
-      }
-
-      if (type === "day") {
-        if (String(Cache.get(`mode`)) !== "afkmode")
-          return this.ctx.deleteMessage();
-        if (String(Cache.get(`mode`)) === "afkmode") {
-          this.ctx.deleteMessage();
-          this.ctx.answerCallbackQuery({
-            text: "⚠️ Suck mode sudah aktif.",
-            show_alert: true,
-          });
-          return;
-        }
-        var pesan = `❇️ <b>Masukkan Angka</b>`;
-        pesan += `\nBerapa lama Anda ingin ngehama?\nSaat ini: ${Cache.get(`afkmodeDur`)} hari.`;
-        let keyb = [];
-        keyb[0] = [btn.text(`❌ Batal`, `afkmode_return_none`)];
-
-        Cache.set(`smode_session_${chat?.id}`, true);
-        this.ctx
-          .editMessageText(pesan, {
-            parse_mode: "HTML",
-            reply_markup: markup.inlineKeyboard(keyb),
-          })
-          .catch(() => {});
-        this.ctx.answerCallbackQuery().catch(() => {});
-        return;
-      }
-
-      if (type === "role") {
-        if (String(Cache.get(`mode`)) !== "afkmode")
-          return this.ctx.deleteMessage();
-        if (!Cache.get(`afkmode${mc[2]}`)) {
-          Cache.set(`afkmode${mc[2]}`, true);
-        } else {
-          Cache.del(`afkmode${mc[2]}`);
-        }
-        let keyb: any[] = [];
-        keyb.push([
-          btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
-          btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
-        ]);
-        keyb.push(...this.buildRoleButtons("afkmode_role"));
-        keyb.push([
-          btn.text(
-            `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
-            `afkmode_afkrl_none`,
-          ),
-          btn.text(
-            `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
-            `afkmode_conti_none`,
-          ),
-        ]);
-        keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
-
-        this.ctx
-          .editMessageReplyMarkup({
-            reply_markup: markup.inlineKeyboard(keyb),
-          })
-          .catch(() => {});
-        this.ctx.answerCallbackQuery().catch(() => {});
-        return;
-      }
-
-      if (type === "rlset") {
-        if (String(Cache.get(`mode`)) === "afkmode") {
-          this.ctx.deleteMessage();
-          this.ctx.answerCallbackQuery({
-            text: "⚠️ Suck mode sudah aktif.",
-            show_alert: true,
-          });
-          return;
-        }
-        var pesan = `🎎 <b>Peran</b>`;
-        pesan += `\nApakah Anda ingin peran berikut dikendalikan bot atau manual? Anda juga dapat mengubahnya nanti.`;
-
-        let keyb: any[] = [];
-        keyb.push(...this.buildRoleButtons("afkmode_rolst"));
-        keyb.push([btn.text(`❌ Batal`, `cancel_`)]);
-        keyb.push([
-          btn.text(`⬅️ Kembali`, `afkmode_election_none`),
-          btn.text(`Aktifkan ➡️`, `afkmode_active_none`),
-        ]);
-
-        this.ctx
-          .editMessageText(pesan, {
-            parse_mode: "HTML",
-            reply_markup: markup.inlineKeyboard(keyb),
-          })
-          .catch(() => {});
-        this.ctx.answerCallbackQuery().catch(() => {});
-        return;
-      }
-
-      if (type === "rolst") {
-        if (String(Cache.get(`mode`)) === "afkmode") {
-          this.ctx.deleteMessage();
-          this.ctx.answerCallbackQuery({
-            text: "⚠️ Suck mode sudah aktif.",
-            show_alert: true,
-          });
-          return;
-        }
-        if (!Cache.get(`afkmode${mc[2]}`)) {
-          Cache.set(`afkmode${mc[2]}`, true);
-        } else {
-          Cache.del(`afkmode${mc[2]}`);
-        }
-        let keyb: any[] = [];
-        keyb.push(...this.buildRoleButtons("afkmode_rolst"));
-        keyb.push([btn.text(`❌ Batal`, `cancel_`)]);
-        keyb.push([
-          btn.text(`⬅️ Kembali`, `afkmode_election_none`),
-          btn.text(`Aktifkan ➡️`, `afkmode_active_none`),
-        ]);
-
-        this.ctx
-          .editMessageReplyMarkup({
-            reply_markup: markup.inlineKeyboard(keyb),
-          })
-          .catch(() => {});
-        this.ctx.answerCallbackQuery().catch(() => {});
-        return;
-      }
-
-      if (type === "vote") {
-        if (Cache.get(`vote_type`) === mc[2])
-          return this.ctx.answerCallbackQuery();
-        Cache.set(`vote_type`, mc[2]);
-        let keyb = [];
-        keyb[0] = [
-          btn.text(
-            `Gunakan ${mc[2] === "yes" ? "✅" : ""}`,
-            `afkmode_vote_yes`,
-          ),
-          btn.text(`Lewati ${mc[2] === "no" ? "✅" : ""}`, `afkmode_vote_no`),
-        ];
-        if (!Cache.get(`mode`)) {
-          keyb[1] = [
-            btn.text(`❌ Batal`, !Cache.get(`mode`) ? `cancel_` : `close_`),
-            btn.text(
-              Cache.get(`mode`) ? `Simpan ➡️` : `Lanjut ➡️`,
-              Cache.get(`mode`) ? `afkmode_active_none` : `afkmode_rlset_none`,
-            ),
-          ];
-        } else {
-          keyb[1] = [btn.text(`⬅️ Kembali`, `afkmode_return_none`)];
-        }
-
-        Cache.set(`useVote`, mc[2]);
-        this.ctx
-          .editMessageReplyMarkup({
-            reply_markup: markup.inlineKeyboard(keyb),
-          })
-          .catch(() => {});
-        this.ctx.answerCallbackQuery().catch(() => {});
-        return;
-      }
-
-      if (type === "election") {
-        if (!Cache.get(`useVote`)) {
-          Cache.set(`useVote`, "yes");
-        }
-        var pesan = `🗳 <b>Mode Pemilihan</b>`;
-        pesan += `\nApakah Anda ingin melewati pemilihan? jika ya, maka semua userbot akan memilih target acak dari daftar userbot (target ditentukan apabila dia tidak memiliki peran aktif).`;
-        let keyb = [];
-        keyb[0] = [
-          btn.text(
-            `Gunakan ${Cache.get(`useVote`) === "yes" ? "✅" : ""}`,
-            `afkmode_vote_yes`,
-          ),
-          btn.text(
-            `Lewati ${Cache.get(`useVote`) === "no" ? "✅" : ""}`,
-            `afkmode_vote_no`,
-          ),
-        ];
-        if (!Cache.get(`mode`)) {
-          keyb[1] = [
-            btn.text(`❌ Batal`, !Cache.get(`mode`) ? `cancel_` : `close_`),
-            btn.text(
-              Cache.get(`mode`) ? `Simpan ➡️` : `Lanjut ➡️`,
-              Cache.get(`mode`) ? `afkmode_active_none` : `afkmode_rlset_none`,
-            ),
-          ];
-        } else {
-          keyb[1] = [btn.text(`⬅️ Kembali`, `afkmode_return_none`)];
-        }
-
-        this.ctx
-          .editMessageText(pesan, {
-            parse_mode: "HTML",
-            reply_markup: markup.inlineKeyboard(keyb),
-          })
-          .catch(() => {});
-        this.ctx.answerCallbackQuery().catch(() => {});
-        return;
-      }
-
-      if (type === "active") {
-        if (String(Cache.get(`mode`)) === "afkmode") {
-          this.ctx.deleteMessage();
-          this.ctx.answerCallbackQuery({
-            text: "⚠️ Suck mode sudah aktif.",
-            show_alert: true,
-          });
-          return;
-        }
-        if (!Cache.get(`useVote`))
-          return this.ctx.answerCallbackQuery({
-            text: "⚠️ Pilih mode pemilihan terlebih dahulu.",
-            show_alert: true,
-          });
-        Cache.set(`mode`, "afkmode");
-        this.ctx.deleteMessage().catch(() => {});
-        Utils.sendMessageToAdmin(
-          this.bot,
-          `✅ <b>Suck Mode Diaktifkan!</b>\nSuck mode telah diaktifkan di ${Cache.get(`groupName`)}, userbot akan bertahan hingga hari ke-${Cache.get(`afkmodeDur`)}, Anda akan diberitahu tentang peran semua userbot.`,
-        );
-        return;
-      }
-
-      if (type === "disable") {
-        if (String(Cache.get(`mode`)) !== "afkmode") {
-          this.ctx.deleteMessage();
-          this.ctx.answerCallbackQuery({
-            text: "⚠️ Suck mode tidak aktif.",
-            show_alert: true,
-          });
-          return;
-        }
-        var pesan = `⚠️ <b>Perhatian!</b>\nApakah Anda yakin ingin menonaktifkan suck mode di ${Cache.get(`groupName`)}?`;
-        let keyb = [];
-        keyb[0] = [
-          btn.text(`✅ Ya`, `afkmode_disableC_none`),
-          btn.text(`❌ Tidak`, `afkmode_return_none`),
-        ];
-
-        this.ctx
-          .editMessageText(pesan, {
-            parse_mode: "HTML",
-            reply_markup: markup.inlineKeyboard(keyb),
-          })
-          .catch(() => {});
-        this.ctx.answerCallbackQuery().catch(() => {});
-        return;
-      }
-
-      if (type === "disableC") {
-        if (String(Cache.get(`mode`)) !== "afkmode") {
-          this.ctx.deleteMessage();
-          this.ctx.answerCallbackQuery({
-            text: "⚠️ Suck mode tidak aktif.",
-            show_alert: true,
-          });
-          return;
-        }
-        UserBots.clearSmode();
-        this.ctx.deleteMessage();
-        Utils.sendMessageToAdmin(
-          this.bot,
-          `✅ <b>Suck Mode Dimatikan!</b>\nUserbot akan afk hingga permainan berakhir.`,
-        );
-      }
-    }
   }
 }

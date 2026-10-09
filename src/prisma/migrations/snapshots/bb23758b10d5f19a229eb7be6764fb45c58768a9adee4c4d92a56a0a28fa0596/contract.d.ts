@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'e5df42bb412e6c740e5de239f467d65026e6e7e6c4db64af20b7c12d4eafc281'>;
+  StorageHashBase<'bb23758b10d5f19a229eb7be6764fb45c58768a9adee4c4d92a56a0a28fa0596'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
@@ -249,23 +249,7 @@ type DefaultLiteralValue<CodecId extends string, Encoded> = CodecId extends keyo
 
 export type FieldOutputTypes = {
   readonly public: {
-    readonly Administrators: {
-      readonly CanAddGroup: CodecTypes['pg/bool@1']['output'];
-      readonly CanGetRole: CodecTypes['pg/bool@1']['output'];
-      readonly CanLogin: CodecTypes['pg/bool@1']['output'];
-      readonly CanManageGroup: CodecTypes['pg/bool@1']['output'];
-      readonly CanManageLog: CodecTypes['pg/bool@1']['output'];
-      readonly CanManageSmode: CodecTypes['pg/bool@1']['output'];
-      readonly CanManageUbot: CodecTypes['pg/bool@1']['output'];
-      readonly CanPromoteUser: CodecTypes['pg/bool@1']['output'];
-      readonly CanStartSmode: CodecTypes['pg/bool@1']['output'];
-      readonly CanUseNext: CodecTypes['pg/bool@1']['output'];
-      readonly CanUseReset: CodecTypes['pg/bool@1']['output'];
-      readonly CanViewLog: CodecTypes['pg/bool@1']['output'];
-      readonly IsHighAdmin: CodecTypes['pg/bool@1']['output'];
-      readonly Promotor: CodecTypes['pg/text@1']['output'];
-      readonly UserId: CodecTypes['pg/text@1']['output'];
-    };
+    readonly Administrators: { readonly UserId: CodecTypes['pg/text@1']['output'] };
     readonly DisabledUserBot: { readonly UserId: CodecTypes['pg/text@1']['output'] };
     readonly Group: {
       readonly GroupId: CodecTypes['pg/text@1']['output'];
@@ -281,23 +265,7 @@ export type FieldOutputTypes = {
 };
 export type FieldInputTypes = {
   readonly public: {
-    readonly Administrators: {
-      readonly CanAddGroup: CodecTypes['pg/bool@1']['input'];
-      readonly CanGetRole: CodecTypes['pg/bool@1']['input'];
-      readonly CanLogin: CodecTypes['pg/bool@1']['input'];
-      readonly CanManageGroup: CodecTypes['pg/bool@1']['input'];
-      readonly CanManageLog: CodecTypes['pg/bool@1']['input'];
-      readonly CanManageSmode: CodecTypes['pg/bool@1']['input'];
-      readonly CanManageUbot: CodecTypes['pg/bool@1']['input'];
-      readonly CanPromoteUser: CodecTypes['pg/bool@1']['input'];
-      readonly CanStartSmode: CodecTypes['pg/bool@1']['input'];
-      readonly CanUseNext: CodecTypes['pg/bool@1']['input'];
-      readonly CanUseReset: CodecTypes['pg/bool@1']['input'];
-      readonly CanViewLog: CodecTypes['pg/bool@1']['input'];
-      readonly IsHighAdmin: CodecTypes['pg/bool@1']['input'];
-      readonly Promotor: CodecTypes['pg/text@1']['input'];
-      readonly UserId: CodecTypes['pg/text@1']['input'];
-    };
+    readonly Administrators: { readonly UserId: CodecTypes['pg/text@1']['input'] };
     readonly DisabledUserBot: { readonly UserId: CodecTypes['pg/text@1']['input'] };
     readonly Group: {
       readonly GroupId: CodecTypes['pg/text@1']['input'];
@@ -313,23 +281,7 @@ export type FieldInputTypes = {
 };
 export type StorageColumnTypes = {
   readonly public: {
-    readonly Administrators: {
-      readonly CanAddGroup: CodecTypes['pg/bool@1']['output'];
-      readonly CanGetRole: CodecTypes['pg/bool@1']['output'];
-      readonly CanLogin: CodecTypes['pg/bool@1']['output'];
-      readonly CanManageGroup: CodecTypes['pg/bool@1']['output'];
-      readonly CanManageLog: CodecTypes['pg/bool@1']['output'];
-      readonly CanManageSmode: CodecTypes['pg/bool@1']['output'];
-      readonly CanManageUbot: CodecTypes['pg/bool@1']['output'];
-      readonly CanPromoteUser: CodecTypes['pg/bool@1']['output'];
-      readonly CanStartSmode: CodecTypes['pg/bool@1']['output'];
-      readonly CanUseNext: CodecTypes['pg/bool@1']['output'];
-      readonly CanUseReset: CodecTypes['pg/bool@1']['output'];
-      readonly CanViewLog: CodecTypes['pg/bool@1']['output'];
-      readonly IsHighAdmin: CodecTypes['pg/bool@1']['output'];
-      readonly Promotor: CodecTypes['pg/text@1']['output'];
-      readonly UserId: CodecTypes['pg/text@1']['output'];
-    };
+    readonly Administrators: { readonly UserId: CodecTypes['pg/text@1']['output'] };
     readonly DisabledUserBot: { readonly UserId: CodecTypes['pg/text@1']['output'] };
     readonly Group: {
       readonly GroupId: CodecTypes['pg/text@1']['output'];
@@ -345,23 +297,7 @@ export type StorageColumnTypes = {
 };
 export type StorageColumnInputTypes = {
   readonly public: {
-    readonly Administrators: {
-      readonly CanAddGroup: CodecTypes['pg/bool@1']['input'];
-      readonly CanGetRole: CodecTypes['pg/bool@1']['input'];
-      readonly CanLogin: CodecTypes['pg/bool@1']['input'];
-      readonly CanManageGroup: CodecTypes['pg/bool@1']['input'];
-      readonly CanManageLog: CodecTypes['pg/bool@1']['input'];
-      readonly CanManageSmode: CodecTypes['pg/bool@1']['input'];
-      readonly CanManageUbot: CodecTypes['pg/bool@1']['input'];
-      readonly CanPromoteUser: CodecTypes['pg/bool@1']['input'];
-      readonly CanStartSmode: CodecTypes['pg/bool@1']['input'];
-      readonly CanUseNext: CodecTypes['pg/bool@1']['input'];
-      readonly CanUseReset: CodecTypes['pg/bool@1']['input'];
-      readonly CanViewLog: CodecTypes['pg/bool@1']['input'];
-      readonly IsHighAdmin: CodecTypes['pg/bool@1']['input'];
-      readonly Promotor: CodecTypes['pg/text@1']['input'];
-      readonly UserId: CodecTypes['pg/text@1']['input'];
-    };
+    readonly Administrators: { readonly UserId: CodecTypes['pg/text@1']['input'] };
     readonly DisabledUserBot: { readonly UserId: CodecTypes['pg/text@1']['input'] };
     readonly Group: {
       readonly GroupId: CodecTypes['pg/text@1']['input'];
@@ -378,20 +314,6 @@ export type StorageColumnInputTypes = {
 
 export namespace Models {
   export type public_Administrators = {
-    CanAddGroup: CodecTypes['pg/bool@1']['output'];
-    CanGetRole: CodecTypes['pg/bool@1']['output'];
-    CanLogin: CodecTypes['pg/bool@1']['output'];
-    CanManageGroup: CodecTypes['pg/bool@1']['output'];
-    CanManageLog: CodecTypes['pg/bool@1']['output'];
-    CanManageSmode: CodecTypes['pg/bool@1']['output'];
-    CanManageUbot: CodecTypes['pg/bool@1']['output'];
-    CanPromoteUser: CodecTypes['pg/bool@1']['output'];
-    CanStartSmode: CodecTypes['pg/bool@1']['output'];
-    CanUseNext: CodecTypes['pg/bool@1']['output'];
-    CanUseReset: CodecTypes['pg/bool@1']['output'];
-    CanViewLog: CodecTypes['pg/bool@1']['output'];
-    IsHighAdmin: CodecTypes['pg/bool@1']['output'];
-    Promotor: CodecTypes['pg/text@1']['output'];
     UserId: CodecTypes['pg/text@1']['output'];
     readonly [RelationKeys]?: never;
   };
@@ -442,128 +364,6 @@ type ContractBase = Omit<
           readonly table: {
             readonly Administrators: {
               columns: {
-                readonly CanAddGroup: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
-                  };
-                };
-                readonly CanGetRole: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
-                  };
-                };
-                readonly CanLogin: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
-                  };
-                };
-                readonly CanManageGroup: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
-                  };
-                };
-                readonly CanManageLog: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
-                  };
-                };
-                readonly CanManageSmode: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
-                  };
-                };
-                readonly CanManageUbot: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
-                  };
-                };
-                readonly CanPromoteUser: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
-                  };
-                };
-                readonly CanStartSmode: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
-                  };
-                };
-                readonly CanUseNext: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
-                  };
-                };
-                readonly CanUseReset: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
-                  };
-                };
-                readonly CanViewLog: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
-                  };
-                };
-                readonly IsHighAdmin: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
-                  };
-                };
-                readonly Promotor: {
-                  readonly nativeType: 'text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: false;
-                };
                 readonly UserId: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
@@ -662,62 +462,6 @@ type ContractBase = Omit<
         readonly models: {
           readonly Administrators: {
             readonly fields: {
-              readonly CanAddGroup: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly CanGetRole: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly CanLogin: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly CanManageGroup: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly CanManageLog: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly CanManageSmode: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly CanManageUbot: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly CanPromoteUser: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly CanStartSmode: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly CanUseNext: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly CanUseReset: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly CanViewLog: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly IsHighAdmin: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
-              readonly Promotor: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
               readonly UserId: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -727,23 +471,7 @@ type ContractBase = Omit<
             readonly storage: {
               readonly table: 'Administrators';
               readonly namespaceId: 'public';
-              readonly fields: {
-                readonly CanAddGroup: { readonly column: 'CanAddGroup' };
-                readonly CanGetRole: { readonly column: 'CanGetRole' };
-                readonly CanLogin: { readonly column: 'CanLogin' };
-                readonly CanManageGroup: { readonly column: 'CanManageGroup' };
-                readonly CanManageLog: { readonly column: 'CanManageLog' };
-                readonly CanManageSmode: { readonly column: 'CanManageSmode' };
-                readonly CanManageUbot: { readonly column: 'CanManageUbot' };
-                readonly CanPromoteUser: { readonly column: 'CanPromoteUser' };
-                readonly CanStartSmode: { readonly column: 'CanStartSmode' };
-                readonly CanUseNext: { readonly column: 'CanUseNext' };
-                readonly CanUseReset: { readonly column: 'CanUseReset' };
-                readonly CanViewLog: { readonly column: 'CanViewLog' };
-                readonly IsHighAdmin: { readonly column: 'IsHighAdmin' };
-                readonly Promotor: { readonly column: 'Promotor' };
-                readonly UserId: { readonly column: 'UserId' };
-              };
+              readonly fields: { readonly UserId: { readonly column: 'UserId' } };
             };
           };
           readonly DisabledUserBot: {

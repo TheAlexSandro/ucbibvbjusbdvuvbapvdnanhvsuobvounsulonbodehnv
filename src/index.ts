@@ -14,12 +14,15 @@ const workerCount = Number(process.env["WORKER_COUNT"] ?? 4);
 const bot = new Bot(String(process.env["BOT_TOKEN"]));
 const app = express();
 
-const loadSessionStrings = (): string[] => {
-  const list: string[] = [];
-  for (let i = 1; process.env[`SESSION_STRING_${i}`] !== undefined; i++) {
-    list.push(process.env[`SESSION_STRING_${i}`]!);
-  }
-  return list;
+const loadSessionStrings = async (): Promise<string[]> => {
+  const table = Database.orm.public.Userbots;
+  await table.where({ IsActive: false }).update({ IsActive: true });
+  const rows = await table.select("SessionString", "Sort").all();
+
+  return rows
+    .sort((a, b) => a.Sort - b.Sort)
+    .map((row) => row.SessionString)
+    .filter((s): s is string => Boolean(s));
 };
 
 const syncDisabledFromDb = async () => {
@@ -35,7 +38,7 @@ const main = async () => {
   await syncDisabledFromDb();
 
   const manager: WorkerManager = new WorkerManager({
-    sessionStrings: loadSessionStrings(),
+    sessionStrings: await loadSessionStrings(),
     apiId,
     apiHash,
     workerCount,
