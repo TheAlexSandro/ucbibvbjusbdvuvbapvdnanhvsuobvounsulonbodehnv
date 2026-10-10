@@ -30,6 +30,12 @@ type PromoteDraft = {
   target: string;
   perms: Partial<Record<PermKey, boolean>>;
 };
+type LoginResult = {
+  status: "saved" | "duplicate";
+  userId: string;
+  fullName: string;
+  username: string | null;
+};
 const loginClients = new Map<string, TelegramClient>();
 
 export class BotHandle {
@@ -54,26 +60,33 @@ export class BotHandle {
     return c ? c.disconnect().catch(() => {}) : Promise.resolve();
   }
 
-  private saveLogin(
-    chatId: string,
-    digits: string,
-  ): Promise<"saved" | "duplicate"> {
+  private saveLogin(chatId: string, digits: string): Promise<LoginResult> {
     const client = loginClients.get(chatId)!;
-    let userId = "";
+    let info: Omit<LoginResult, "status"> = {
+      userId: "",
+      fullName: "",
+      username: null,
+    };
     let sessionString = "";
 
     return client
       .getMe()
       .then((me: any) => {
-        userId = String(me.id);
+        info = {
+          userId: String(me.id),
+          fullName:
+            [me.firstName, me.lastName].filter(Boolean).join(" ") ||
+            String(me.id),
+          username: me.username ? String(me.username) : null,
+        };
         sessionString = client.session.save() as unknown as string;
         return this.dropLoginClient(chatId);
       })
       .then(() =>
-        Database.orm.public.Userbots.where({ UserId: userId }).first(),
+        Database.orm.public.Userbots.where({ UserId: info.userId }).first(),
       )
-      .then((dup) => {
-        if (dup) return "duplicate" as const;
+      .then((dup): LoginResult | PromiseLike<LoginResult> => {
+        if (dup) return { status: "duplicate", ...info };
 
         return Database.orm.public.Userbots.select("Sort")
           .all()
@@ -82,14 +95,14 @@ export class BotHandle {
               rows.reduce((m, r) => Math.max(m, Number(r.Sort)), 0) + 1;
 
             return Database.orm.public.Userbots.create({
-              UserId: userId,
+              UserId: info.userId,
               Phone: digits,
               Sort: sort,
               SessionString: sessionString,
               IsActive: false,
             });
           })
-          .then(() => "saved" as const);
+          .then(() => ({ status: "saved" as const, ...info }));
       });
   }
 
@@ -98,21 +111,19 @@ export class BotHandle {
     digits: string,
     edit: (text: string, extra?: object) => Promise<unknown>,
   ): Promise<unknown> {
-    Utils.writeLog(
-      `[${new Date()}] ${Utils.getNames(this.ctx)} - menambahkan userbot baru.\n`,
-    );
-    return this.saveLogin(chatId, digits).then((st) => {
-      if (st === "duplicate")
+    return this.saveLogin(chatId, digits).then((r) => {
+      const info =
+        `\n\n👤 <b>${Utils.clearHTML(r.fullName)}</b>` +
+        `\n🆔 <code>${r.userId}</code>` +
+        `\n🔗 ${r.username ? `@${Utils.clearHTML(r.username)}` : "-"}`;
+
+      if (r.status === "duplicate")
         return edit(
-          `⚠️ Akun ini sudah terdaftar, session baru tidak disimpan.`,
+          `⚠️ <b>Sudah Terdaftar!</b>\nAkun ini sudah ada, session baru tidak disimpan.${info}`,
         );
 
-      Utils.sendMessageToAdmin(
-        this.bot,
-        `🤖 <b>Userbot Baru!</b>\nUserbot baru telah ditambahkan oleh ${Utils.getNames(this.ctx)}`,
-      );
       return edit(
-        `✅ <b>Berhasil Masuk!</b>\nRestart server diperlukan untuk menerapkan perubahan, restart sekarang?`,
+        `✅ <b>Berhasil Masuk!</b>${info}\n\nRestart server diperlukan untuk menerapkan perubahan, restart sekarang?`,
         {
           reply_markup: markup.inlineKeyboard([
             [btn.text(`⏺️ Restart Sekarang`, `server_restart`)],
@@ -185,12 +196,33 @@ export class BotHandle {
           pesan += `\n• /reset - (berbahaya!) gunakan perintah ini untuk menghapus semua cache.`;
           pesan += `\n• /admin - kelola administrator.`;
           pesan += `\n• /login - masukkan akun Anda dalam script.`;
+          pesan += `\n• /restart - mulai ulang server untuk menerapkan perubahan/memperbaiki sesuatu.`;
           pesan += `\n• /log - lihat log.`;
 
           this.ctx.reply(pesan, { parse_mode: "HTML" });
           Utils.writeLog(
             `[${new Date()}] ${Utils.getNames(this.ctx)} - melakukan start bot.\n`,
           );
+          return;
+        }
+
+        var pola = /^\/restart$/i;
+        if (pola.exec(this.ctx.message?.text!)) {
+          if (!admin.CanManageServer)
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+
+          var pesan = `⏺️ <b>Restart Server</b>`;
+          pesan += `\nMulai ulang untuk menerapkan perubahan atau memperbaiki sesuatu.`;
+          let keyb = [];
+          keyb[0] = [btn.text(`Restart`, `server_restart`)];
+
+          this.ctx.reply(pesan, {
+            parse_mode: "HTML",
+            reply_markup: markup.inlineKeyboard(keyb),
+          });
           return;
         }
 

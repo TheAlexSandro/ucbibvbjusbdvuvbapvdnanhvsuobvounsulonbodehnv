@@ -55,8 +55,31 @@ const main = async () => {
   await initDb();
   await syncDisabledFromDb();
 
+  const sessionStrings = await loadSessionStrings();
+  const total = sessionStrings.length;
+  const connected = new Map<string, string>();
+  let notified = false;
+
+  const notifyReady = (timedOut = false) => {
+    if (notified) return;
+    notified = true;
+    clearTimeout(readyTimer);
+
+    const list = [...connected.values()].map((l) => `• ${l}`).join("\n");
+    const pesan = timedOut
+      ? `⚠️ <b>Server Online With Caution</b>\n${connected.size}/${total} tersambung setelah 90 detik. Sisanya mungkin session invalid atau terkena limit.`
+      : `✅ <b>Server Online!</b>\n${total}/${total} userbot aktif.`;
+
+    Promise.resolve(
+      Utils.sendMessageToAdmin(bot, list ? `${pesan}\n\n${list}` : pesan),
+    ).catch((err) => console.error("Gagal kirim notif admin:", err));
+  };
+
+  const readyTimer = setTimeout(() => notifyReady(true), 90_000);
+  readyTimer.unref();
+
   const manager: WorkerManager = new WorkerManager({
-    sessionStrings: await loadSessionStrings(),
+    sessionStrings,
     apiId,
     apiHash,
     workerCount,
@@ -71,10 +94,18 @@ const main = async () => {
         bot,
         `⚠️ <b>Perhatian!</b>\n<a href='tg://user?id=${Number(ref.userId)}'>${user?.fullName ?? ref.userId}</a> gagal bergabung, userbot mungkin dibatasi di grup atau terkena limit.`,
       ),
-    onConnected: (ref, user) =>
+    onConnected: (ref, user) => {
       console.log(
         `CONNECTED USERBOT ${user.firstName} - ${user.username} [${ref.userId}]`,
-      ),
+      );
+
+      const label = `${Utils.clearHTML(String(user.firstName ?? ref.userId))}${
+        user.username ? ` (@${Utils.clearHTML(String(user.username))})` : ""
+      } [<code>${ref.userId}</code>]`;
+      connected.set(String(ref.userId), label);
+
+      if (connected.size >= total) notifyReady();
+    },
   });
 
   bot.on("message", (ctx: NonNullable<Context>) =>
