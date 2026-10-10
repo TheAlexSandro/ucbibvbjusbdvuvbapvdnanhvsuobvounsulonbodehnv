@@ -6,8 +6,8 @@ import { Cache } from "../Utils/Caches";
 import { Database } from "../prisma/Database";
 import { UserBots } from "../Utils/UserBots";
 import fs from "fs/promises";
-import { TelegramClient, Api } from "teleproto";
-import { StringSession } from "teleproto/sessions";
+import { Api, TelegramClient } from "teleproto";
+import { StringSession } from "teleproto/sessions/index.js";
 import { Lifecycle } from "../Utils/LifeCycle";
 
 const PERMS = [
