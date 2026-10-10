@@ -446,7 +446,7 @@ export class BotHandle {
                 this.ctx.api.editMessageText(
                   result.chat.id,
                   result.message_id,
-                  pesan,
+                  `${pesan}\nTotal: ${keyb.length}`,
                   {
                     parse_mode: "HTML",
                     reply_markup: { inline_keyboard: keyb },

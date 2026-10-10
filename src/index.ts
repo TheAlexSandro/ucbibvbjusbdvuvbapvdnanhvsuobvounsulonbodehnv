@@ -70,9 +70,9 @@ const main = async () => {
       ? `⚠️ <b>Server Online With Caution</b>\n${connected.size}/${total} tersambung setelah 90 detik. Sisanya mungkin session invalid atau terkena limit.`
       : `✅ <b>Server Online!</b>\n${total}/${total} userbot aktif.`;
 
-    Promise.resolve(
-      Utils.sendMessageToAdmin(bot, list ? `${pesan}\n\n${list}` : pesan),
-    ).catch((err) => console.error("Gagal kirim notif admin:", err));
+    // Promise.resolve(
+    //   Utils.sendMessageToAdmin(bot, list ? `${pesan}\n\n${list}` : pesan),
+    // ).catch((err) => console.error("Gagal kirim notif admin:", err));
   };
 
   const readyTimer = setTimeout(() => notifyReady(true), 90_000);
