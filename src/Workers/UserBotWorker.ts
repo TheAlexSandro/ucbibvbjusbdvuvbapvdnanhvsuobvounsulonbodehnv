@@ -164,13 +164,18 @@ const handleAttentionJoin = (idx: number, msg: any) => {
     .catch(() => send({ type: "joinFailed", clientIndex: idx }));
 };
 
+const clients = new Map<number, TelegramClient>();
+let shuttingDown = false;
+let initDone: Promise<unknown> = Promise.resolve();
 const initClient = async (ss: string, idx: number) => {
   const client = new TelegramClient(new StringSession(ss), apiId, apiHash, {
     connectionRetries: 5,
     autoReconnect: true,
   });
+  clients.set(idx, client);
 
   await client.connect();
+  if (shuttingDown) return;
   const me: any = await client.getMe();
   await client.invoke(new Api.updates.GetState()).catch(() => {});
   const mafiaEntity = await client.getEntity(trueMafia).catch(() => null);
@@ -267,13 +272,30 @@ const runCommand = async <A extends CommandAction>(
 port.on("message", async (msg: MainToWorker) => {
   switch (msg.type) {
     case "init": {
-      const results = await Promise.allSettled(
+      initDone = Promise.allSettled(
         sessionStrings.map((ss, i) => initClient(ss, i)),
-      );
-      results.forEach((r, i) => {
-        if (r.status === "rejected")
-          log(`Gagal init userbot #${i}: ${r.reason?.message ?? r.reason}`);
+      ).then((results) => {
+        results.forEach((r, i) => {
+          if (r.status === "rejected") {
+            log(`Gagal init userbot #${i}: ${r.reason?.message ?? r.reason}`);
+            clients
+              .get(i)
+              ?.destroy()
+              .catch(() => {});
+          }
+        });
       });
+      await initDone;
+      return;
+    }
+
+    case "shutdown": {
+      shuttingDown = true;
+      initDone
+        .then(() =>
+          Promise.allSettled([...clients.values()].map((c) => c.destroy())),
+        )
+        .then(() => send({ type: "shutdownDone" }));
       return;
     }
 
@@ -286,6 +308,7 @@ port.on("message", async (msg: MainToWorker) => {
 
     case "command": {
       const slot = slots[msg.clientIndex];
+      if (!slot || shuttingDown) throw new Error("Client belum terhubung");
       try {
         if (!slot) throw new Error("Client belum terhubung");
         const data = await runCommand(slot, msg.action, msg.args as any);

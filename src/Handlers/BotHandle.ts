@@ -1181,7 +1181,7 @@ export class BotHandle {
             );
             return this.ctx
               .editMessageText(
-                `🔄 <b>Memulai Ulang...</b>\nBot akan aktif kembali dalam beberapa detik.`,
+                `🔄 <b>Memulai Ulang...</b>\nBot akan aktif kembali dalam beberapa detik hingga menit.`,
                 { parse_mode: "HTML" },
               )
               .catch(() => {})

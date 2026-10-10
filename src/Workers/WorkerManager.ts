@@ -144,6 +144,8 @@ export class WorkerManager {
       case "log":
         console.log(msg.text);
         return;
+      case "shutdownDone":
+        return;
     }
   }
 
@@ -156,8 +158,27 @@ export class WorkerManager {
     }
   }
 
+  private stopWorker(worker: Worker, graceMs = 10_000): Promise<number> {
+    return new Promise<void>((resolve) => {
+      const force = setTimeout(resolve, graceMs);
+
+      worker.on("message", (msg: WorkerToMain) => {
+        if (msg.type === "shutdownDone") {
+          clearTimeout(force);
+          resolve();
+        }
+      });
+      worker.once("exit", () => {
+        clearTimeout(force);
+        resolve();
+      });
+
+      this.post(worker, { type: "shutdown" });
+    }).then(() => worker.terminate());
+  }
+
   async shutdown() {
-    await Promise.allSettled(this.workers.map((w) => w.terminate()));
+    await Promise.allSettled(this.workers.map((w) => this.stopWorker(w)));
   }
 
   getRefs(): ClientRef[] {

@@ -9,6 +9,7 @@ import { BotHandle } from "./Handlers/BotHandle";
 import { WorkerManager } from "./Workers/WorkerManager";
 import { spawn } from "child_process";
 import { Lifecycle } from "./Utils/LifeCycle";
+import { setTimeout as sleep } from "timers/promises";
 
 const apiId = Number(process.env["API_ID"]);
 const apiHash = String(process.env["API_HASH"]);
@@ -36,11 +37,16 @@ const loadSessionStrings = async (): Promise<string[]> => {
   await table.where({ IsActive: false }).update({ IsActive: true });
   const rows = await table.select("SessionString", "Sort", "IsUsed").all();
 
+  const seen = new Set<string>();
   return rows
     .filter((row) => row.IsUsed)
     .sort((a, b) => a.Sort - b.Sort)
     .map((row) => row.SessionString)
-    .filter((s): s is string => Boolean(s));
+    .filter((s): s is string => {
+      if (!s || seen.has(s)) return false;
+      seen.add(s);
+      return true;
+    });
 };
 
 const syncDisabledFromDb = async () => {
@@ -54,6 +60,11 @@ const syncDisabledFromDb = async () => {
 const main = async () => {
   await initDb();
   await syncDisabledFromDb();
+  const delay = Number(process.env["STARTUP_DELAY_MS"] ?? 0);
+  if (delay > 0) {
+    console.log(`Menunggu ${delay} ms sebelum menyambung userbot...`);
+    await sleep(delay);
+  }
 
   const sessionStrings = await loadSessionStrings();
   const total = sessionStrings.length;
@@ -139,14 +150,17 @@ const main = async () => {
 
   let closing = false;
 
-  const shutdown = (restart = false) => {
+  const shutdown = (restart = false, crashed = false) => {
     if (closing) return;
     closing = true;
     clearInterval(syncTimer);
 
+    const code = crashed || (restart && isSupervised()) ? 1 : 0;
+    process.exitCode = code;
+
     const finish = () => {
       if (restart && !isSupervised()) respawn();
-      process.exit(restart && isSupervised() ? 1 : 0);
+      process.exit(code);
     };
 
     bot
@@ -164,6 +178,13 @@ const main = async () => {
   Lifecycle.register(shutdown);
   process.once("SIGINT", () => shutdown());
   process.once("SIGTERM", () => shutdown());
+  process.on("unhandledRejection", (err) =>
+    console.error("[main] unhandledRejection:", err),
+  );
+  process.on("uncaughtException", (err) => {
+    console.error("[main] uncaughtException:", err);
+    shutdown(false, true);
+  });
 };
 
 main().catch((err) => {
