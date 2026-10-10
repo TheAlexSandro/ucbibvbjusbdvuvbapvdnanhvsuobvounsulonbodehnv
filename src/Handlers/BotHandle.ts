@@ -46,6 +46,7 @@ export class BotHandle {
   private dropLoginClient(chatId: string): Promise<void> {
     const c = loginClients.get(chatId);
     loginClients.delete(chatId);
+    Cache.del(`sessionLogin_${chatId}`);
     Cache.del(`sessionVerifyCode_${chatId}`);
     Cache.del(`sessionVerifyPass_${chatId}`);
     Cache.del(`phoneHash_${chatId}`);
@@ -97,6 +98,9 @@ export class BotHandle {
     digits: string,
     edit: (text: string, extra?: object) => Promise<unknown>,
   ): Promise<unknown> {
+    Utils.writeLog(
+      `[${new Date()}] ${Utils.getNames(this.ctx)} - menambahkan userbot baru.\n`,
+    );
     return this.saveLogin(chatId, digits).then((st) => {
       if (st === "duplicate")
         return edit(
@@ -184,6 +188,9 @@ export class BotHandle {
           pesan += `\n• /log - lihat log.`;
 
           this.ctx.reply(pesan, { parse_mode: "HTML" });
+          Utils.writeLog(
+            `[${new Date()}] ${Utils.getNames(this.ctx)} - melakukan start bot.\n`,
+          );
           return;
         }
 
@@ -211,6 +218,9 @@ export class BotHandle {
 
         var pola = /^\/admin$/i;
         if (pola.exec(this.ctx.message?.text!)) {
+          Utils.writeLog(
+            `[${new Date()}] ${Utils.getNames(this.ctx)} - mengakses pusat administrator.\n`,
+          );
           this.ctx.reply(`⏳ Memproses...`).then((message_result) => {
             var pesan = `👮‍♂️ <b>Pusat Administrator</b>`;
             pesan += `\nDi sini, Anda dapat menambahkan admin dan mengelola administrator yang sudah ada.`;
@@ -285,6 +295,9 @@ export class BotHandle {
 
         var pola = /^\/gc$/i;
         if (pola.exec(this.ctx.message?.text!)) {
+          Utils.writeLog(
+            `[${new Date()}] ${Utils.getNames(this.ctx)} - mengakses perintah /gc.\n`,
+          );
           var pesan = `👥 <b>Kelola Grup</b>`;
           pesan += `\nTambahkan grup atau kelola grup yang sudah ada.`;
           let keyb = [];
@@ -305,6 +318,9 @@ export class BotHandle {
               `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
               { parse_mode: "HTML" },
             );
+          Utils.writeLog(
+            `[${new Date()}] ${Utils.getNames(this.ctx)} - mengakses perintah /getrole.\n`,
+          );
           if (!Cache.get(`groupName`))
             return this.ctx.reply(
               `⚠️ <b>Perhatian!</b>\nBelum ada grup yang ditentukan.`,
@@ -373,6 +389,9 @@ export class BotHandle {
               `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
               { parse_mode: "HTML" },
             );
+          Utils.writeLog(
+            `[${new Date()}] ${Utils.getNames(this.ctx)} - mengakses perintah /ubot.\n`,
+          );
           this.ctx.reply(`⏳ Memproses...`).then((result) => {
             Database.orm.public.DisabledUserBot.select("UserId")
               .all()
@@ -413,6 +432,9 @@ export class BotHandle {
               `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
               { parse_mode: "HTML" },
             );
+          Utils.writeLog(
+            `[${new Date()}] ${Utils.getNames(this.ctx)} - meangakses perintah /next.\n`,
+          );
           if (Cache.get(`mode`))
             return this.ctx.reply(
               `⚠️ <b>Perhatian!</b>\nSuck mode harus dihentikan terlebih dahulu.`,
@@ -461,6 +483,9 @@ export class BotHandle {
               `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
               { parse_mode: "HTML" },
             );
+          Utils.writeLog(
+            `[${new Date()}] ${Utils.getNames(this.ctx)} - mengakses perintah /smode.\n`,
+          );
           if (!Cache.get(`groupName`))
             return this.ctx.reply(
               `⚠️ <b>Perhatian!</b>\nBelum ada grup yang ditentukan.`,
@@ -535,6 +560,9 @@ export class BotHandle {
               `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
               { parse_mode: "HTML" },
             );
+          Utils.writeLog(
+            `[${new Date()}] ${Utils.getNames(this.ctx)} - mengakses perintah /reset.\n`,
+          );
           var pesan = `⚠️ <b>Perhatian!</b>`;
           pesan += `\nApakah Anda ingin menghapus semua cache? suck mode yang aktif, next yang sudah dikirim akan terdampak.`;
           let keyb = [];
@@ -650,6 +678,9 @@ export class BotHandle {
                     pesan += `\nUsername: ${entity.username ? `@${entity.username}` : "-"}`;
                     pesan += `\nPeserta: ${entity.total ?? "-"}`;
 
+                    Utils.writeLog(
+                      `[${new Date()}] ${Utils.getNames(this.ctx)} - menambahkan grup baru: ${entity.title}.\n`,
+                    );
                     await Database.orm.public.Group.create({
                       GroupId: groupId,
                       GroupName: String(entity.title),
@@ -1113,6 +1144,9 @@ export class BotHandle {
 
           const act = mc[1];
           if (act === "restart") {
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - melakukan restart server.\n`,
+            );
             return this.ctx
               .editMessageText(
                 `🔄 <b>Memulai Ulang...</b>\nBot akan aktif kembali dalam beberapa detik.`,
@@ -1142,6 +1176,9 @@ export class BotHandle {
           }
 
           if (act === "code") {
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - meminta ulang kode masuk.\n`,
+            );
             this.ctx.editMessageText(`⏳ Mengirim ulang kode`).then(() => {
               const client = loginClients.get(String(chat?.id));
               const phone = Cache.get(`sessionVerifyCode_${chat?.id}`);
@@ -1191,6 +1228,9 @@ export class BotHandle {
                 text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
                 show_alert: true,
               });
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - ingin menambahkan administrator.\n`,
+            );
             var pesan = `❇️ <b>Add Admin</b>`;
             pesan += `\nSend me the user id here, the user must start the bot first.`;
             let keyb = [];
@@ -1303,6 +1343,9 @@ export class BotHandle {
               PERMS.map(([k]) => [k, Boolean(draft.perms[k] && admin[k])]),
             );
 
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - mengangkat admin baru: ${userId}.\n`,
+            );
             return Database.orm.public.Administrators.where({ UserId: userId })
               .first()
               .then((exists) => {
@@ -1352,6 +1395,9 @@ export class BotHandle {
                     const nama = r.last_name
                       ? `${r.first_name} ${r.last_name}`
                       : r.first_name;
+                    Utils.writeLog(
+                      `[${new Date()}] ${Utils.getNames(this.ctx)} - mengakses/mengubah izn admin: ${nama}.\n`,
+                    );
                     const pesan = `👮‍♂️ <b>${nama}</b>\nIzin mana yang akan Anda ubah untuk pengguna ini?\nPromoter: ${promoter.last_name ? `${promoter.first_name} ${promoter.last_name}` : promoter.first_name}`;
 
                     const keyb = PERMS.map(([key, label]) => [
@@ -1478,6 +1524,9 @@ export class BotHandle {
                         Cache.del(`sessionAddAdm_${target}`);
                         Cache.del(`promoteDraft_${target}`);
 
+                        Utils.writeLog(
+                          `[${new Date()}] ${Utils.getNames(this.ctx)} - mencopot admin: ${nama}.\n`,
+                        );
                         return this.ctx.editMessageText(
                           `✅ <b>Berhasil!</b>\n<b>${nama}</b> telah dicopot dari admin.`,
                           {
@@ -1548,6 +1597,9 @@ export class BotHandle {
                 text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
                 show_alert: true,
               });
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - mengakses panel kelola grup.\n`,
+            );
             this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
               var pesan = `✏️ <b>Kelola Grup</b>`;
               pesan += `\nPilih grup mana yang ingin Anda hapus.`;
@@ -1582,6 +1634,9 @@ export class BotHandle {
                 text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
                 show_alert: true,
               });
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - menghapus grup: ${groupId}.\n`,
+            );
             this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
               Database.orm.public.Group.where({ GroupId: groupId })
                 .delete()
@@ -1653,6 +1708,9 @@ export class BotHandle {
           }
 
           if (type === "refresh") {
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - melakukan refresh daftar grup.\n`,
+            );
             this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
               const updateAllGroupNames = () => {
                 Database.orm.public.Group.select("GroupId")
@@ -1767,6 +1825,9 @@ export class BotHandle {
 
           if (method === "direct") {
             const target = mc[1];
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - melakukan next dengan metode direct.\n`,
+            );
             this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
               Cache.set(`join`, "direct");
               Cache.set(`groupTarget`, target);
@@ -1796,6 +1857,9 @@ export class BotHandle {
 
           if (method === "send") {
             const target = mc[1];
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - melakukan next dengan metode send.\n`,
+            );
             this.ctx.editMessageText(`⏳ Memproses...`).then(() => {
               Cache.set(`groupTarget`, target);
               Cache.set(`join`, "next");
@@ -1863,6 +1927,9 @@ export class BotHandle {
               show_alert: true,
             });
           const userId = mc[1];
+          Utils.writeLog(
+            `[${new Date()}] ${Utils.getNames(this.ctx)} - mengubah konfigurasi userbot: ${userId}.\n`,
+          );
           const isDisabled = Cache.get(`userbot_${userId}_disabled`);
           const newDisabled = !isDisabled;
 
@@ -1972,6 +2039,9 @@ export class BotHandle {
             } else {
               Cache.set(`allroleAfk`, true);
             }
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - mengubah konfigurasi afk semua ke: ${Cache.get(`allroleAfk`) ? "on" : "off"}.\n`,
+            );
             let keyb: any[] = [];
             keyb.push([
               btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
@@ -2009,6 +2079,9 @@ export class BotHandle {
               Cache.set(`join`, "direct");
               Cache.set(`continu`, true);
             }
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - mengubah konfigurasi continuous ke: ${Cache.get(`continu`) ? "on" : "off"}.\n`,
+            );
             let keyb: any[] = [];
             keyb.push([
               btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
@@ -2071,6 +2144,9 @@ export class BotHandle {
             } else {
               Cache.del(`afkmode${mc[2]}`);
             }
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - mengubah role ${mc[2]} ke ${Cache.get(`afkmode${mc[2]}`) ? "manual" : "otomatis"}.\n`,
+            );
             let keyb: any[] = [];
             keyb.push([
               btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
@@ -2185,6 +2261,9 @@ export class BotHandle {
                 ),
               ];
             } else {
+              Utils.writeLog(
+                `[${new Date()}] ${Utils.getNames(this.ctx)} - mengubah konfigurasi vote ke: ${mc[2] === "yes" ? "gunakan" : "lewati"}.\n`,
+              );
               keyb[1] = [btn.text(`⬅️ Kembali`, `afkmode_return_none`)];
             }
 
@@ -2255,6 +2334,9 @@ export class BotHandle {
               });
             Cache.set(`mode`, "afkmode");
             this.ctx.deleteMessage().catch(() => {});
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - mengaktifkan suck mode di: ${Cache.get(`groupName`)}.\n`,
+            );
             Utils.sendMessageToAdmin(
               this.bot,
               `✅ <b>Suck Mode Diaktifkan!</b>\nSuck mode telah diaktifkan di ${Cache.get(`groupName`)}, userbot akan bertahan hingga hari ke-${Cache.get(`afkmodeDur`)}, Anda akan diberitahu tentang peran semua userbot.`,
@@ -2297,6 +2379,9 @@ export class BotHandle {
               });
               return;
             }
+            Utils.writeLog(
+              `[${new Date()}] ${Utils.getNames(this.ctx)} - menonaktifkan suck mode di ${Cache.get(`groupName`)}.\n`,
+            );
             UserBots.clearSmode();
             this.ctx.deleteMessage();
             Utils.sendMessageToAdmin(
