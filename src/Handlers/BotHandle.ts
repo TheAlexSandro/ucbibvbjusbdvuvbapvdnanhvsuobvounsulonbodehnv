@@ -6,6 +6,9 @@ import { Cache } from "../Utils/Caches";
 import { Database } from "../prisma/Database";
 import { UserBots } from "../Utils/UserBots";
 import fs from "fs/promises";
+import { TelegramClient, Api } from "teleproto";
+import { StringSession } from "teleproto/sessions";
+import { Lifecycle } from "../Utils/LifeCycle";
 
 const PERMS = [
   ["CanAddGroup", "Can Add Group"],
@@ -19,12 +22,15 @@ const PERMS = [
   ["CanPromoteUser", "Can Promote User"],
   ["CanViewLog", "Can View Log"],
   ["CanManageLog", "Can Manage Log"],
+  ["CanLogin", "Can Login"],
+  ["CanManageServer", "Can Manage Server"],
 ] as const;
 type PermKey = (typeof PERMS)[number][0];
 type PromoteDraft = {
   target: string;
   perms: Partial<Record<PermKey, boolean>>;
 };
+const loginClients = new Map<string, TelegramClient>();
 
 export class BotHandle {
   bot: Bot;
@@ -35,6 +41,81 @@ export class BotHandle {
     this.bot = bot;
     this.ctx = ctx;
     this.manager = manager;
+  }
+
+  private dropLoginClient(chatId: string): Promise<void> {
+    const c = loginClients.get(chatId);
+    loginClients.delete(chatId);
+    Cache.del(`sessionVerifyCode_${chatId}`);
+    Cache.del(`sessionVerifyPass_${chatId}`);
+    Cache.del(`phoneHash_${chatId}`);
+
+    return c ? c.disconnect().catch(() => {}) : Promise.resolve();
+  }
+
+  private saveLogin(
+    chatId: string,
+    digits: string,
+  ): Promise<"saved" | "duplicate"> {
+    const client = loginClients.get(chatId)!;
+    let userId = "";
+    let sessionString = "";
+
+    return client
+      .getMe()
+      .then((me: any) => {
+        userId = String(me.id);
+        sessionString = client.session.save() as unknown as string;
+        return this.dropLoginClient(chatId);
+      })
+      .then(() =>
+        Database.orm.public.Userbots.where({ UserId: userId }).first(),
+      )
+      .then((dup) => {
+        if (dup) return "duplicate" as const;
+
+        return Database.orm.public.Userbots.select("Sort")
+          .all()
+          .then((rows) => {
+            const sort =
+              rows.reduce((m, r) => Math.max(m, Number(r.Sort)), 0) + 1;
+
+            return Database.orm.public.Userbots.create({
+              UserId: userId,
+              Phone: digits,
+              Sort: sort,
+              SessionString: sessionString,
+              IsActive: false,
+            });
+          })
+          .then(() => "saved" as const);
+      });
+  }
+
+  private finishLogin(
+    chatId: string,
+    digits: string,
+    edit: (text: string, extra?: object) => Promise<unknown>,
+  ): Promise<unknown> {
+    return this.saveLogin(chatId, digits).then((st) => {
+      if (st === "duplicate")
+        return edit(
+          `⚠️ Akun ini sudah terdaftar, session baru tidak disimpan.`,
+        );
+
+      Utils.sendMessageToAdmin(
+        this.bot,
+        `🤖 <b>Userbot Baru!</b>\nUserbot baru telah ditambahkan oleh ${Utils.getNames(this.ctx)}`,
+      );
+      return edit(
+        `✅ <b>Berhasil Masuk!</b>\nRestart server diperlukan untuk menerapkan perubahan, restart sekarang?`,
+        {
+          reply_markup: markup.inlineKeyboard([
+            [btn.text(`⏺️ Restart Sekarang`, `server_restart`)],
+          ]),
+        },
+      );
+    });
   }
 
   private buildPromoteKeyboard(
@@ -98,10 +179,33 @@ export class BotHandle {
           pesan += `\n• /smode - (suck mode) gunakan perintah ini untuk membuat userbot bertahan hingga hari yang ditentukan, <b>salah satu userbot harus memiliki peran dokter</b>.`;
           pesan += `\n• /ubot - kelola userbot mana yang akan digunakan.`;
           pesan += `\n• /reset - (berbahaya!) gunakan perintah ini untuk menghapus semua cache.`;
-          pesan += `\n• /admin - kelola administrator.`
+          pesan += `\n• /admin - kelola administrator.`;
+          pesan += `\n• /login - masukkan akun Anda dalam script.`;
           pesan += `\n• /log - lihat log.`;
 
           this.ctx.reply(pesan, { parse_mode: "HTML" });
+          return;
+        }
+
+        var pola = /^\/login$/i;
+        if (pola.exec(this.ctx.message?.text!)) {
+          if (!admin.CanLogin)
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+
+          var pesan = `📱 <b>Nomor Telepon</b>`;
+          pesan += `\nMasukkan nomor telepon akun Telegram Anda, diawali dengan +`;
+          pesan += `\nMisal: +62........`;
+          let keyb = [];
+          keyb[0] = [btn.text(`❌ Batal`, `login_cancel`)];
+
+          Cache.set(`sessionLogin_${chat?.id}`, true);
+          this.ctx.reply(pesan, {
+            parse_mode: "HTML",
+            reply_markup: markup.inlineKeyboard(keyb),
+          });
           return;
         }
 
@@ -137,7 +241,7 @@ export class BotHandle {
             Database.orm.public.Administrators.all()
               .then((adminList) => addNext(adminList, 0))
               .then(() => {
-                rows.push([btn.text(`➕ Add Admin`, `admin_add_none`)]);
+                rows.push([btn.text(`➕ Tambah Admin`, `admin_add_none`)]);
                 this.bot.api.editMessageText(
                   message_result.chat.id,
                   message_result.message_id,
@@ -449,12 +553,20 @@ export class BotHandle {
         const getSmodeSession = Cache.get(`smode_session_${chat?.id}`);
         const getAddgcSession = Cache.get(`session_addgc_${chat?.id}`);
         const getAddAdmSession = Cache.get(`sessionAddAdm_${chat?.id}`);
+        const getLoginSession = Cache.get(`sessionLogin_${chat?.id}`);
+        const getLoginCodeSession = Cache.get(`sessionVerifyCode_${chat?.id}`);
+        const getLoginPassSession = Cache.get(`sessionVerifyPass_${chat?.id}`);
         if (getSmodeSession) {
-          if (!admin.CanStartSmode || !admin.CanManageSmode)
+          if (!admin.CanStartSmode || !admin.CanManageSmode) {
+            Cache.del(`smode_session_${chat?.id}`);
             return this.ctx.reply(
               `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
               { parse_mode: "HTML" },
             );
+          }
+          if (!this.ctx.message?.text) {
+            return this.ctx.reply(`⚠️ Hanya teks.`, { parse_mode: "HTML" });
+          }
           if (/\D+/i.exec(this.ctx.message?.text!))
             return this.ctx.reply(
               `⚠️ <b>Perhatian!</b>\nMasukkan angka yang valid untuk durasi ngehama.`,
@@ -508,11 +620,16 @@ export class BotHandle {
         }
 
         if (getAddgcSession) {
-          if (!admin.CanAddGroup)
+          if (!admin.CanAddGroup) {
+            Cache.del(`session_addgc_${chat?.id}`);
             return this.ctx.reply(
               `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
               { parse_mode: "HTML" },
             );
+          }
+          if (!this.ctx.message?.text) {
+            return this.ctx.reply(`⚠️ Hanya teks.`, { parse_mode: "HTML" });
+          }
           this.ctx
             .reply(`⏳ Mencari informasi dari salah satu userbot...`)
             .then((message_result) => {
@@ -558,11 +675,16 @@ export class BotHandle {
         }
 
         if (getAddAdmSession) {
-          if (!admin.CanPromoteUser)
+          if (!admin.CanPromoteUser) {
+            Cache.del(`sessionAddAdm_${chat?.id}`);
             return this.ctx.reply(
               `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
               { parse_mode: "HTML" },
             );
+          }
+          if (!this.ctx.message?.text) {
+            return this.ctx.reply(`⚠️ Hanya teks.`, { parse_mode: "HTML" });
+          }
           if (/\D+/i.exec(this.ctx.message?.text!))
             return this.ctx.reply(`⚠️ <b>Perhatian!</b>\nHanya angka.`, {
               parse_mode: "HTML",
@@ -620,6 +742,270 @@ export class BotHandle {
               );
           });
           return;
+        }
+
+        if (getLoginSession) {
+          if (!admin.CanLogin) {
+            Cache.del(`sessionLogin_${chat?.id}`);
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          }
+          if (!this.ctx.message?.text)
+            return this.ctx.reply(`⚠️ Hanya teks.`, { parse_mode: "HTML" });
+
+          const phone = this.ctx.message.text.replace(/[\s-]/g, "");
+          if (!phone.startsWith("+"))
+            return this.ctx.reply(`⚠️ Nomor harus diawali +`, {
+              parse_mode: "HTML",
+            });
+          if (!/^\+\d{8,15}$/.test(phone))
+            return this.ctx.reply(
+              `⚠️ Nomor tidak valid (8-15 angka setelah +).`,
+              {
+                parse_mode: "HTML",
+              },
+            );
+
+          const digits = phone.slice(1);
+          const chatId = String(chat?.id);
+          const apiId = Number(process.env["API_ID"]);
+          const apiHash = String(process.env["API_HASH"]);
+
+          Database.orm.public.Userbots.where({ Phone: digits })
+            .first()
+            .then((row): Promise<unknown> => {
+              if (row) {
+                return this.ctx.reply(
+                  `⚠️ <b>Sudah Terhubung!</b>\nNomor ini sudah terdaftar sebagai userbot.`,
+                  { parse_mode: "HTML" },
+                );
+              }
+
+              return this.ctx
+                .reply(`⏳ Menghubungkan MTProto...`)
+                .then((msg) => {
+                  const edit = (text: string, extra: object = {}) =>
+                    this.bot.api.editMessageText(
+                      msg.chat.id,
+                      msg.message_id,
+                      text,
+                      {
+                        parse_mode: "HTML",
+                        ...extra,
+                      },
+                    );
+
+                  const client = new TelegramClient(
+                    new StringSession(""),
+                    apiId,
+                    apiHash,
+                    {
+                      connectionRetries: 5,
+                    },
+                  );
+
+                  return this.dropLoginClient(chatId)
+                    .then(() => client.connect())
+                    .then(() => {
+                      loginClients.set(chatId, client);
+                      setTimeout(() => {
+                        if (loginClients.get(chatId) === client)
+                          this.dropLoginClient(chatId);
+                      }, 5 * 60_000);
+                      return edit(
+                        `⏳ Mengirim kode ke <code>+${digits}</code>...`,
+                      );
+                    })
+                    .then(() => client.sendCode({ apiId, apiHash }, digits))
+                    .then((r) => {
+                      if (r.emailRequired || r.emailCodeSent)
+                        edit(`⚠️ Tidak mendukung email login.`);
+
+                      Cache.del(`sessionLogin_${chatId}`);
+                      Cache.set(`sessionVerifyCode_${chatId}`, digits);
+                      Cache.set(`phoneHash_${chatId}`, r.phoneCodeHash);
+
+                      const keyb = [
+                        [btn.text(`🔄 Minta Kode`, `login_code`)],
+                        [btn.text(`❌ Batal`, `login_cancel`)],
+                      ];
+                      return edit(
+                        `✅ <b>Kode Terkirim!</b>\nKirimkan kode yang telah masuk ke akun yang Anda daftarkan. Kode tidak masuk? tekan tombol Minta Kode untuk meminta kode lagi.`,
+                        { reply_markup: markup.inlineKeyboard(keyb) },
+                      );
+                    })
+                    .catch((err) => {
+                      this.dropLoginClient(chatId);
+                      return edit(
+                        `⚠️ <b>Gagal!</b>\n${err?.errorMessage ?? err?.message ?? err}`,
+                      );
+                    });
+                });
+            })
+            .catch((err) => {
+              console.error("Gagal cek nomor:", err);
+              return this.ctx.reply(
+                `⚠️ Gagal mengecek nomor: ${err instanceof Error ? err.message : err}`,
+              );
+            });
+          return;
+        }
+
+        if (getLoginCodeSession) {
+          const chatId = String(chat?.id);
+          const digits = String(getLoginCodeSession).trim();
+
+          if (!admin.CanLogin) {
+            this.dropLoginClient(chatId);
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          }
+
+          const client = loginClients.get(chatId);
+          if (!client) {
+            this.dropLoginClient(chatId);
+            return this.ctx.reply(`⚠️ Sesi login habis, mulai lagi.`);
+          }
+          if (!this.ctx.message?.text)
+            return this.ctx.reply(`⚠️ Hanya teks.`, { parse_mode: "HTML" });
+
+          const code = this.ctx.message.text.replace(/\D/g, "");
+          if (code.length !== 5)
+            return this.ctx.reply(`⚠️ Kode terdiri dari 5 angka.`, {
+              parse_mode: "HTML",
+            });
+
+          this.ctx.reply(`⏳ Memverifikasi...`).then((message_result) => {
+            const edit = (text: string, extra: object = {}) =>
+              this.bot.api.editMessageText(
+                message_result.chat.id,
+                message_result.message_id,
+                text,
+                { parse_mode: "HTML", ...extra },
+              );
+
+            client
+              .invoke(
+                new Api.auth.SignIn({
+                  phoneNumber: digits,
+                  phoneCodeHash: String(Cache.get(`phoneHash_${chatId}`)),
+                  phoneCode: code,
+                }),
+              )
+              .then((res) => {
+                if (res instanceof Api.auth.AuthorizationSignUpRequired)
+                  throw new Error("Nomor ini belum punya akun Telegram.");
+
+                return this.finishLogin(chatId, digits, edit);
+              })
+              .catch((err) => {
+                const em = err?.errorMessage;
+
+                if (em === "SESSION_PASSWORD_NEEDED") {
+                  Cache.del(`sessionVerifyCode_${chatId}`);
+                  Cache.del(`phoneHash_${chatId}`);
+                  Cache.set(`sessionVerifyPass_${chatId}`, digits);
+                  return edit(
+                    `🔐 <b>Kata Sandi</b>\nMasukkan kata sandi untuk <code>+${digits}</code>`,
+                    {
+                      reply_markup: markup.inlineKeyboard([
+                        [btn.text(`❌ Batal`, `login_cancel`)],
+                      ]),
+                    },
+                  );
+                }
+
+                if (em === "PHONE_CODE_INVALID")
+                  return edit(`⚠️ <b>Kode Salah</b>\nKirim kode yang benar.`, {
+                    reply_markup: markup.inlineKeyboard([
+                      [btn.text(`🔄 Minta Kode`, `login_code`)],
+                      [btn.text(`❌ Batal`, `login_cancel`)],
+                    ]),
+                  });
+
+                if (em === "PHONE_CODE_EXPIRED") {
+                  return edit(
+                    `⚠️ <b>Kode Kedaluwarsa</b>\nKode untuk <code>+${digits}</code> sudah kedaluwarsa.`,
+                    {
+                      reply_markup: markup.inlineKeyboard([
+                        [btn.text(`🔄 Minta Kode`, `login_code`)],
+                        [btn.text(`❌ Batal`, `login_cancel`)],
+                      ]),
+                    },
+                  );
+                }
+
+                this.dropLoginClient(chatId);
+                return edit(
+                  `⚠️ Gagal memverifikasi: ${em ?? err?.message ?? err}`,
+                );
+              });
+          });
+          return;
+        }
+
+        if (getLoginPassSession) {
+          if (!admin.CanLogin) {
+            Cache.del(`sessionVerifyCode_${chat?.id}`);
+            return this.ctx.reply(
+              `⚠️ <b>Akses Ditolak!</b>\nAnda tidak diizinkan untuk mengoperasikan ini.`,
+              { parse_mode: "HTML" },
+            );
+          }
+          const chatId = String(chat?.id);
+          const apiId = Number(process.env["API_ID"]);
+          const apiHash = String(process.env["API_HASH"]);
+          const client = loginClients.get(chatId);
+          if (!client) {
+            this.dropLoginClient(chatId);
+            return this.ctx.reply(`⚠️ Sesi login habis, mulai lagi.`);
+          }
+          if (!this.ctx.message?.text)
+            return this.ctx.reply(`⚠️ Hanya teks.`, { parse_mode: "HTML" });
+
+          this.ctx.reply(`⏳ Memverifikasi...`).then((message_result) => {
+            const edit = (text: string, extra: object = {}) =>
+              this.bot.api.editMessageText(
+                message_result.chat.id,
+                message_result.message_id,
+                text,
+                { parse_mode: "HTML", ...extra },
+              );
+            client
+              .signInWithPassword(
+                { apiId, apiHash },
+                {
+                  password: () =>
+                    Promise.resolve(String(this.ctx.message?.text)),
+                  onError: (e) => {
+                    throw e;
+                  },
+                },
+              )
+              .then(() =>
+                this.finishLogin(chatId, String(getLoginPassSession), edit),
+              )
+              .catch((err) => {
+                if (String(err?.errorMessage).includes("PASSWORD_HASH_INVALID"))
+                  return edit(
+                    `⚠️ <b>Password salah.</b>\nKirim password yang benar.`,
+                    {
+                      reply_markup: markup.inlineKeyboard([
+                        [btn.text(`❌ Batal`, `login_cancel`)],
+                      ]),
+                    },
+                  );
+
+                this.dropLoginClient(chatId);
+                return edit(
+                  `⚠️ Gagal memverifikasi: ${err?.errorMessage ?? err?.message ?? err}`,
+                );
+              });
+          });
         }
       });
   }
@@ -717,6 +1103,83 @@ export class BotHandle {
           return;
         }
 
+        var pola = /^server_(.*)$/i;
+        if ((mc = pola.exec(cbData))) {
+          if (!admin.CanManageServer)
+            return this.ctx.answerCallbackQuery({
+              text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+              show_alert: true,
+            });
+
+          const act = mc[1];
+          if (act === "restart") {
+            return this.ctx
+              .editMessageText(
+                `🔄 <b>Memulai Ulang...</b>\nBot akan aktif kembali dalam beberapa detik.`,
+                { parse_mode: "HTML" },
+              )
+              .catch(() => {})
+              .then(() => this.ctx.answerCallbackQuery().catch(() => {}))
+              .then(() => Lifecycle.restart());
+          }
+        }
+
+        var pola = /^login_(.*)$/i;
+        if ((mc = pola.exec(cbData))) {
+          if (!admin.CanLogin)
+            return this.ctx.answerCallbackQuery({
+              text: "⚠️ Akses Ditolak\nAnda tidak diizinkan untuk mengoperasikan ini.",
+              show_alert: true,
+            });
+          const act = mc[1];
+
+          if (act === "cancel") {
+            this.dropLoginClient(String(chat?.id));
+            this.ctx.editMessageText(`❌ <b>Dibatalkan!</b>`, {
+              parse_mode: "HTML",
+            });
+            return;
+          }
+
+          if (act === "code") {
+            this.ctx.editMessageText(`⏳ Mengirim ulang kode`).then(() => {
+              const client = loginClients.get(String(chat?.id));
+              const phone = Cache.get(`sessionVerifyCode_${chat?.id}`);
+              const apiId = Number(process.env["API_ID"]);
+              const apiHash = String(process.env["API_HASH"]);
+              const keyb = [
+                [btn.text(`🔄 Minta Kode`, `login_code`)],
+                [btn.text(`❌ Batal`, `login_cancel`)],
+              ];
+              const pesan = `✅ <b>Kode Terkirim!</b>\nKirimkan kode yang telah masuk ke akun yang Anda daftarkan. Kode tidak masuk? tekan tombol Minta Kode untuk meminta kode lagi.`;
+
+              client
+                ?.sendCode({ apiId, apiHash }, String(phone).trim())
+                .then(() => {
+                  this.ctx.answerCallbackQuery({
+                    text: `✅ Berhasil!\nKode berhasil dikirim ulang.`,
+                    show_alert: true,
+                  });
+                  this.ctx.editMessageText(pesan, {
+                    reply_markup: markup.inlineKeyboard(keyb),
+                    parse_mode: "HTML",
+                  });
+                })
+                .catch(() => {
+                  this.ctx.answerCallbackQuery({
+                    text: `⚠️ Gagal!\nGagal mengirim kode, Anda mungkin terlalu banyak mencoba.`,
+                    show_alert: true,
+                  });
+                  this.ctx.editMessageText(pesan, {
+                    reply_markup: markup.inlineKeyboard(keyb),
+                    parse_mode: "HTML",
+                  });
+                });
+            });
+            return;
+          }
+        }
+
         var pola = /^admin_(.*)_(.*)$/i;
         if ((mc = pola.exec(cbData))) {
           const act = mc[1];
@@ -774,7 +1237,7 @@ export class BotHandle {
               Database.orm.public.Administrators.all()
                 .then((adminList) => addNext(adminList, 0))
                 .then(() => {
-                  rows.push([btn.text(`➕ Add Admin`, `admin_add_none`)]);
+                  rows.push([btn.text(`➕ Tambah Admin`, `admin_add_none`)]);
                   this.ctx.editMessageText(pesan, {
                     reply_markup: markup.inlineKeyboard(rows),
                     parse_mode: "HTML",
@@ -804,7 +1267,7 @@ export class BotHandle {
             const draft = Cache.get(key) as PromoteDraft | undefined;
             if (!draft || draft.target !== userId)
               return this.ctx.answerCallbackQuery({
-                text: "⚠️ Sesi habis, mulai lagi dari Add Admin.",
+                text: "⚠️ Sesi habis, mulai lagi dari Tambah Admin.",
                 show_alert: true,
               });
 
@@ -832,7 +1295,7 @@ export class BotHandle {
             const draft = Cache.get(key) as PromoteDraft | undefined;
             if (!draft || draft.target !== userId)
               return this.ctx.answerCallbackQuery({
-                text: "⚠️ Sesi habis, mulai lagi dari Add Admin.",
+                text: "⚠️ Sesi habis, mulai lagi dari Tambah Admin.",
                 show_alert: true,
               });
 
@@ -882,20 +1345,6 @@ export class BotHandle {
                   text: "⚠️ Tidak Ada!\nPengguna mungkin bukan admin.",
                   show_alert: true,
                 });
-              const PERMS = [
-                ["CanAddGroup", "Can Add Group"],
-                ["CanManageGroup", "Can Manage Group"],
-                ["CanGetRole", "Can Get Role"],
-                ["CanUseNext", "Can Use Next"],
-                ["CanStartSmode", "Can Start Smode"],
-                ["CanManageSmode", "Can Manage Smode"],
-                ["CanManageUbot", "Can Manage Ubot"],
-                ["CanUseReset", "Can Use Reset"],
-                ["CanPromoteUser", "Can Promote User"],
-                ["CanViewLog", "Can View Log"],
-                ["CanManageLog", "Can Manage Log"],
-              ] as const;
-              type PermKey = (typeof PERMS)[number][0];
 
               const renderManage = (userId: string, row: typeof adm) =>
                 this.bot.api.getChat(userId).then((r) => {
@@ -935,7 +1384,7 @@ export class BotHandle {
                     text: "⚠️ Akses Ditolak!\nAnda tidak dapat mengubah diri Anda.",
                     show_alert: true,
                   });
-                if (adm.Promotor !== String(chat?.id))
+                if (adm.Promotor !== String(chat?.id) && !admin.IsHighAdmin)
                   return this.ctx.answerCallbackQuery({
                     text: "⚠️ Akses Ditolak!\nAnda bukan promoter pengguna ini.",
                     show_alert: true,

@@ -7,6 +7,8 @@ import { Utils } from "./Utils/Utils";
 import { UserBotHandle } from "./Handlers/UserBotHandle";
 import { BotHandle } from "./Handlers/BotHandle";
 import { WorkerManager } from "./Workers/WorkerManager";
+import { spawn } from "child_process";
+import { Lifecycle } from "./Utils/LifeCycle";
 
 const apiId = Number(process.env["API_ID"]);
 const apiHash = String(process.env["API_HASH"]);
@@ -14,12 +16,28 @@ const workerCount = Number(process.env["WORKER_COUNT"] ?? 4);
 const bot = new Bot(String(process.env["BOT_TOKEN"]));
 const app = express();
 
+const isSupervised = () =>
+  Boolean(
+    process.env["FLY_APP_NAME"] ||
+    process.env["pm_id"] ||
+    process.env["SUPERVISED"],
+  );
+
+const respawn = () => {
+  spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], {
+    detached: true,
+    stdio: "inherit",
+    env: process.env,
+  }).unref();
+};
+
 const loadSessionStrings = async (): Promise<string[]> => {
   const table = Database.orm.public.Userbots;
   await table.where({ IsActive: false }).update({ IsActive: true });
-  const rows = await table.select("SessionString", "Sort").all();
+  const rows = await table.select("SessionString", "Sort", "IsUsed").all();
 
   return rows
+    .filter((row) => row.IsUsed)
     .sort((a, b) => a.Sort - b.Sort)
     .map((row) => row.SessionString)
     .filter((s): s is string => Boolean(s));
@@ -88,15 +106,33 @@ const main = async () => {
     console.log("ALL SYSTEM CONNECTED.");
   });
 
-  const shutdown = async () => {
+  let closing = false;
+
+  const shutdown = (restart = false) => {
+    if (closing) return;
+    closing = true;
     clearInterval(syncTimer);
-    server.close();
-    await bot.stop().catch(() => {});
-    await manager.shutdown();
-    process.exit(0);
+
+    const finish = () => {
+      if (restart && !isSupervised()) respawn();
+      process.exit(restart && isSupervised() ? 1 : 0);
+    };
+
+    bot
+      .stop()
+      .catch(() => {})
+      .then(() => manager.shutdown())
+      .catch(() => {})
+      .then(() => {
+        setTimeout(finish, 5000).unref();
+        server.close(finish);
+        server.closeAllConnections();
+      });
   };
-  process.once("SIGINT", shutdown);
-  process.once("SIGTERM", shutdown);
+
+  Lifecycle.register(shutdown);
+  process.once("SIGINT", () => shutdown());
+  process.once("SIGTERM", () => shutdown());
 };
 
 main().catch((err) => {

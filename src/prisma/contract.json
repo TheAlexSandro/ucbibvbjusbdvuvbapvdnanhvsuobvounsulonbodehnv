@@ -62,6 +62,13 @@
                   "kind": "scalar"
                 }
               },
+              "CanManageServer": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "CanManageSmode": {
                 "nullable": false,
                 "type": {
@@ -150,6 +157,9 @@
                 },
                 "CanManageLog": {
                   "column": "CanManageLog"
+                },
+                "CanManageServer": {
+                  "column": "CanManageServer"
                 },
                 "CanManageSmode": {
                   "column": "CanManageSmode"
@@ -247,6 +257,20 @@
                   "kind": "scalar"
                 }
               },
+              "IsUsed": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "Phone": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "SessionString": {
                 "nullable": false,
                 "type": {
@@ -274,6 +298,12 @@
               "fields": {
                 "IsActive": {
                   "column": "IsActive"
+                },
+                "IsUsed": {
+                  "column": "IsUsed"
+                },
+                "Phone": {
+                  "column": "Phone"
                 },
                 "SessionString": {
                   "column": "SessionString"
@@ -337,6 +367,15 @@
                   "nullable": false
                 },
                 "CanManageLog": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "CanManageServer": {
                   "codecId": "pg/bool@1",
                   "default": {
                     "kind": "literal",
@@ -483,6 +522,20 @@
                   "nativeType": "bool",
                   "nullable": false
                 },
+                "IsUsed": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "Phone": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
                 "SessionString": {
                   "codecId": "pg/text@1",
                   "nativeType": "text",
@@ -514,7 +567,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "e5df42bb412e6c740e5de239f467d65026e6e7e6c4db64af20b7c12d4eafc281"
+    "storageHash": "292a1afc39aebf7c3ad47ad2fc337d704e1330f232a93e7964d92e8cdf1b964f"
   },
   "capabilities": {
     "postgres": {

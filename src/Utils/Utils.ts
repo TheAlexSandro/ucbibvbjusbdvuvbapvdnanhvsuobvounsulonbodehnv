@@ -17,6 +17,14 @@ export class Utils {
       : `<a href='tg://user?id=${id}'>${name}</a>`;
   }
 
+  static getNames(ctx: Context): string {
+    const name = ctx.chat?.last_name
+      ? `${ctx.chat?.first_name} ${ctx.chat?.last_name}`
+      : ctx.chat?.first_name;
+    const cName = this.clearHTML(String(name));
+    return cName;
+  }
+
   static getNameById(
     userId: string,
     bot: Bot,

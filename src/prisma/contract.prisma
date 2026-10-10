@@ -13,6 +13,8 @@ model Userbots {
   Sort Int
   SessionString String
   IsActive Boolean
+  Phone String
+  IsUsed Boolean @default(true)
 }
 
 model Administrators {
@@ -29,6 +31,7 @@ model Administrators {
   CanViewLog Boolean @default(false)
   CanManageLog Boolean @default(false)
   CanLogin Boolean @default(true)
+  CanManageServer Boolean @default(false)
   IsHighAdmin Boolean @default(false)
   Promotor String
 }

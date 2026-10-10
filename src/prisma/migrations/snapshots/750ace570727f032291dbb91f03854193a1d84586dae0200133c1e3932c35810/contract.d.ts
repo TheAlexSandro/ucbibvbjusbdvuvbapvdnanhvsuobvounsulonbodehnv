@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'292a1afc39aebf7c3ad47ad2fc337d704e1330f232a93e7964d92e8cdf1b964f'>;
+  StorageHashBase<'750ace570727f032291dbb91f03854193a1d84586dae0200133c1e3932c35810'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
@@ -255,7 +255,6 @@ export type FieldOutputTypes = {
       readonly CanLogin: CodecTypes['pg/bool@1']['output'];
       readonly CanManageGroup: CodecTypes['pg/bool@1']['output'];
       readonly CanManageLog: CodecTypes['pg/bool@1']['output'];
-      readonly CanManageServer: CodecTypes['pg/bool@1']['output'];
       readonly CanManageSmode: CodecTypes['pg/bool@1']['output'];
       readonly CanManageUbot: CodecTypes['pg/bool@1']['output'];
       readonly CanPromoteUser: CodecTypes['pg/bool@1']['output'];
@@ -290,7 +289,6 @@ export type FieldInputTypes = {
       readonly CanLogin: CodecTypes['pg/bool@1']['input'];
       readonly CanManageGroup: CodecTypes['pg/bool@1']['input'];
       readonly CanManageLog: CodecTypes['pg/bool@1']['input'];
-      readonly CanManageServer: CodecTypes['pg/bool@1']['input'];
       readonly CanManageSmode: CodecTypes['pg/bool@1']['input'];
       readonly CanManageUbot: CodecTypes['pg/bool@1']['input'];
       readonly CanPromoteUser: CodecTypes['pg/bool@1']['input'];
@@ -325,7 +323,6 @@ export type StorageColumnTypes = {
       readonly CanLogin: CodecTypes['pg/bool@1']['output'];
       readonly CanManageGroup: CodecTypes['pg/bool@1']['output'];
       readonly CanManageLog: CodecTypes['pg/bool@1']['output'];
-      readonly CanManageServer: CodecTypes['pg/bool@1']['output'];
       readonly CanManageSmode: CodecTypes['pg/bool@1']['output'];
       readonly CanManageUbot: CodecTypes['pg/bool@1']['output'];
       readonly CanPromoteUser: CodecTypes['pg/bool@1']['output'];
@@ -360,7 +357,6 @@ export type StorageColumnInputTypes = {
       readonly CanLogin: CodecTypes['pg/bool@1']['input'];
       readonly CanManageGroup: CodecTypes['pg/bool@1']['input'];
       readonly CanManageLog: CodecTypes['pg/bool@1']['input'];
-      readonly CanManageServer: CodecTypes['pg/bool@1']['input'];
       readonly CanManageSmode: CodecTypes['pg/bool@1']['input'];
       readonly CanManageUbot: CodecTypes['pg/bool@1']['input'];
       readonly CanPromoteUser: CodecTypes['pg/bool@1']['input'];
@@ -395,7 +391,6 @@ export namespace Models {
     CanLogin: CodecTypes['pg/bool@1']['output'];
     CanManageGroup: CodecTypes['pg/bool@1']['output'];
     CanManageLog: CodecTypes['pg/bool@1']['output'];
-    CanManageServer: CodecTypes['pg/bool@1']['output'];
     CanManageSmode: CodecTypes['pg/bool@1']['output'];
     CanManageUbot: CodecTypes['pg/bool@1']['output'];
     CanPromoteUser: CodecTypes['pg/bool@1']['output'];
@@ -494,15 +489,6 @@ type ContractBase = Omit<
                   };
                 };
                 readonly CanManageLog: {
-                  readonly nativeType: 'bool';
-                  readonly codecId: 'pg/bool@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'literal';
-                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
-                  };
-                };
-                readonly CanManageServer: {
                   readonly nativeType: 'bool';
                   readonly codecId: 'pg/bool@1';
                   readonly nullable: false;
@@ -720,10 +706,6 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
-              readonly CanManageServer: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
-              };
               readonly CanManageSmode: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
@@ -775,7 +757,6 @@ type ContractBase = Omit<
                 readonly CanLogin: { readonly column: 'CanLogin' };
                 readonly CanManageGroup: { readonly column: 'CanManageGroup' };
                 readonly CanManageLog: { readonly column: 'CanManageLog' };
-                readonly CanManageServer: { readonly column: 'CanManageServer' };
                 readonly CanManageSmode: { readonly column: 'CanManageSmode' };
                 readonly CanManageUbot: { readonly column: 'CanManageUbot' };
                 readonly CanPromoteUser: { readonly column: 'CanPromoteUser' };

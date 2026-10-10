@@ -27,3 +27,6 @@ min_machines_running = 1
   memory_mb = 512
   processes = ['app']
   size = 'shared-cpu-2x'
+
+[[restart]]
+  policy = "always"
