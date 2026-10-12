@@ -113,7 +113,7 @@ export class BotHandle {
   ): Promise<unknown> {
     return this.saveLogin(chatId, digits).then((r) => {
       const info =
-        `\n\n👤 <b>${Utils.clearHTML(r.fullName)}</b>` +
+        `\n👤 <b>${Utils.clearHTML(r.fullName)}</b>` +
         `\n🆔 <code>${r.userId}</code>` +
         `\n🔗 ${r.username ? `@${Utils.clearHTML(r.username)}` : "-"}`;
 
