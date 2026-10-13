@@ -258,6 +258,7 @@ export class UserBots {
       "afkmodeDur",
       "continu",
       "allroleAfk",
+      "target",
     ].forEach((k) => Cache.del(k));
   }
 
