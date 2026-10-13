@@ -2414,6 +2414,7 @@ export class BotHandle {
             Utils.writeLog(
               `[${new Date()}] ${Utils.getNames(this.ctx)} - menonaktifkan suck mode di ${Cache.get(`groupName`)}.\n`,
             );
+            Cache.del(`join`);
             UserBots.clearSmode();
             this.ctx.deleteMessage();
             Utils.sendMessageToAdmin(

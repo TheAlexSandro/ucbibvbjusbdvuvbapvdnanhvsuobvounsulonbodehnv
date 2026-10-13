@@ -57,6 +57,9 @@ interface AfkRule {
 
 export class UserBots {
   private static getTarget(roleList: string, nameList: string): string | null {
+    const existing = Cache.get(`target`);
+    if (existing) return String(existing);
+
     const roles = parseCsvMap(roleList);
     const names = parseCsvMap(nameList);
 
@@ -65,9 +68,7 @@ export class UserBots {
       .map(([id]) => names[id])
       .filter(Boolean);
 
-    const existing = Cache.get(`target`);
-    if (existing) return String(existing);
-
+    Utils.writeLog(`[TARGET] - Candidates: ${candidates.join(", ")}\nRoles: ${roles}\nNames: ${names}\n`);
     const target = pickRandom(candidates);
     if (!target) return null;
     Cache.set(`target`, target);
@@ -84,7 +85,6 @@ export class UserBots {
     if (!btn) return;
     setTimeout(() => {
       ctx.manager.clickButton(ctx.ref, msg, btn).catch((err: Error) => {
-        Utils.writeLog(`[CLICK ERR] ${err.message}`);
         const isTimeout =
           err.message.includes("BOT_RESPONSE_TIMEOUT") ||
           err.message.includes("BotResponseTimeoutError");
@@ -258,7 +258,6 @@ export class UserBots {
       "afkmodeDur",
       "continu",
       "allroleAfk",
-      "join",
     ].forEach((k) => Cache.del(k));
   }
 
