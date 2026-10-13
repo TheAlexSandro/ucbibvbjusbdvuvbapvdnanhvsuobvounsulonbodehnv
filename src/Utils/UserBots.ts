@@ -68,7 +68,6 @@ export class UserBots {
       .map(([id]) => names[id])
       .filter(Boolean);
 
-    Utils.writeLog(`[TARGET] - Candidates: ${candidates.join(", ")}\nRoles: ${roles}\nNames: ${names}\n`);
     const target = pickRandom(candidates);
     if (!target) return null;
     Cache.set(`target`, target);
@@ -118,8 +117,8 @@ export class UserBots {
     const doctor = String(Cache.get(`doctor`));
     const callbacks = buttons.filter(isCallback);
     const withTarget = () =>
-      target ? callbacks.find((b) => b.text?.includes(target)) : undefined;
-    const notDoctor = () => callbacks.filter((b) => !b.text?.includes(doctor));
+      target ? callbacks.find((b) => b.text === target) : undefined;
+    const notDoctor = () => callbacks.filter((b) => b.text !== doctor);
     const random = () => pickRandom(callbacks);
 
     const rules: AfkRule[] = [
@@ -155,7 +154,7 @@ export class UserBots {
         ],
         pick: () =>
           pickRandom(
-            callbacks.filter((b) => !target || !b.text?.includes(target)),
+            callbacks.filter((b) => !target || b.text !== target),
           ),
       },
       {
