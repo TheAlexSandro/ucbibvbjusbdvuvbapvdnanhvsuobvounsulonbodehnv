@@ -78,7 +78,7 @@ export class UserBots {
     ctx: ClickCtx,
     msg: MessagePayload,
     btn: ButtonPayload | undefined,
-    delay = 500,
+    delay = Number(process.env["DELAY_CLICK"] ?? 100),
     retriesLeft = 2,
   ) {
     if (!btn) return;
@@ -254,7 +254,6 @@ export class UserBots {
       "afkmodeDur",
       "continu",
       "allroleAfk",
-      "target",
     ].forEach((k) => Cache.del(k));
   }
 
@@ -279,6 +278,7 @@ export class UserBots {
       "night",
       "registrationHandled",
       "joined",
+      "target",
     ].forEach((k) => Cache.del(k));
 
     String(process.env["USERBOT"])
