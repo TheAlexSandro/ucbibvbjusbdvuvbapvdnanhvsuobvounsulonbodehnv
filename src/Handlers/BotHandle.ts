@@ -546,6 +546,7 @@ export class BotHandle {
                   `afkmode_conti_none`,
                 ),
               ]);
+              keyb.push([btn.text(`🔮 Aksi Peran`, `afkmode_peran_none`)]);
               keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
 
               this.bot.api.editMessageText(
@@ -571,6 +572,7 @@ export class BotHandle {
             Cache.set(`afkmodeMani`, true);
             Cache.set(`afkmodeSanta`, true);
             Cache.set(`afkmodeDonCh`, true);
+            Cache.set(`afkmodePeran`, "normal");
             var pesan = `❇️ <b>Masukkan Angka</b>`;
             pesan += `\nBerapa lama Anda ingin ngehama?`;
             let keyb = [];
@@ -2051,11 +2053,66 @@ export class BotHandle {
                 `afkmode_conti_none`,
               ),
             ]);
+            keyb.push([btn.text(`🔮 Aksi Peran`, `afkmode_peran_none`)]);
             keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
 
             this.ctx
               .editMessageText(pesan, {
                 parse_mode: "HTML",
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "peran") {
+            var pesan = `🔮 <b>Aksi Peran</b>`;
+            pesan += `\nAtur aksi peran di sini, apa yang akan Anda lakukan?`;
+            pesan += `\n• Normal - aksi peran normal akan membuat semua peran aktif bekerja.`;
+            pesan += `\n• Modcu - aksi peran modcu akan membuat hanya peran baik yang bekerja, peran kriminal akan dibiarkan afk.`;
+            let keyb = [];
+
+            keyb[0] = [
+              btn.text(
+                `Normal ${String(Cache.get(`afkmodePeran`)) === "normal" ? "✅" : ""}`,
+                `afkmode_prn_normal`,
+              ),
+              btn.text(
+                `Modcu ${String(Cache.get(`afkmodePeran`)) === "modcu" ? "✅" : ""}`,
+                `afkmode_prn_modcu`,
+              ),
+            ];
+            keyb.push([btn.text(`⬅️ Kembali`, `afkmode_return_none`)]);
+
+            this.ctx
+              .editMessageText(pesan, {
+                parse_mode: "HTML",
+                reply_markup: markup.inlineKeyboard(keyb),
+              })
+              .catch(() => {});
+            this.ctx.answerCallbackQuery().catch(() => {});
+            return;
+          }
+
+          if (type === "prn") {
+            Cache.set(`afkmodePeran`, mc[2]);
+            let keyb = [];
+
+            keyb[0] = [
+              btn.text(
+                `Normal ${String(Cache.get(`afkmodePeran`)) === "normal" ? "✅" : ""}`,
+                `afkmode_prn_normal`,
+              ),
+              btn.text(
+                `Modcu ${String(Cache.get(`afkmodePeran`)) === "modcu" ? "✅" : ""}`,
+                `afkmode_prn_modcu`,
+              ),
+            ];
+            keyb.push([btn.text(`⬅️ Kembali`, `afkmode_return_none`)]);
+
+            this.ctx
+              .editMessageReplyMarkup({
                 reply_markup: markup.inlineKeyboard(keyb),
               })
               .catch(() => {});

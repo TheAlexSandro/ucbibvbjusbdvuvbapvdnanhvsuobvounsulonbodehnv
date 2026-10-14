@@ -16,11 +16,10 @@ export interface ClickCtx {
 const ALLOWED_TARGET_ROLES = [
   // EN
   "townie",
-  "suicide",
   "lucky",
   // ID
   "warga",
-  "bunuh diri",
+  "beruntung",
 ];
 
 const isCallback = (b: ButtonPayload) =>
@@ -74,6 +73,23 @@ export class UserBots {
     return target;
   }
 
+  private static getSuicide(roleList: string, nameList: string): string | null {
+    const existing = Cache.get(`suicide`);
+    if (existing) return String(existing);
+
+    const roles = parseCsvMap(roleList);
+    const names = parseCsvMap(nameList);
+    const suicideRoles = ["suicide", "bunuh diri"];
+
+    const id = Object.entries(roles).find(([, role]) =>
+      suicideRoles.includes(role.toLowerCase()),
+    )?.[0];
+
+    const name = id ? names[id] : null;
+    Cache.set(`suicide`, name);
+    return name;
+  }
+
   static clickButton(
     ctx: ClickCtx,
     msg: MessagePayload,
@@ -116,10 +132,17 @@ export class UserBots {
 
     const doctor = String(Cache.get(`doctor`));
     const callbacks = buttons.filter(isCallback);
+    const getSuic = this.getSuicide(roleList, nameList);
+    const isModcu = () => String(Cache.get(`afkmodePeran`)) === "modcu";
     const withTarget = () =>
       target ? callbacks.find((b) => b.text === target) : undefined;
     const notDoctor = () => callbacks.filter((b) => b.text !== doctor);
     const random = () => pickRandom(callbacks);
+    const voteFunc = () => {
+      if (isModcu())
+        return getSuic ? callbacks.find((b) => b.text === getSuic) : undefined;
+      return withTarget() ?? random();
+    };
 
     const rules: AfkRule[] = [
       {
@@ -158,12 +181,13 @@ export class UserBots {
       {
         triggers: ["Time to seek the guilty", "Saatnya mencari yang bersalah"],
         enabled: () => String(Cache.get("useVote")) !== "no",
-        pick: () => withTarget() ?? random(),
+        pick: voteFunc,
       },
       { triggers: ["Whose glass", "Botol kaca"], pick: random },
       { triggers: ["Who's today's", "Tentang siapa"], pick: random },
       {
         triggers: ["The Mafia is voting", "Mafia memilih korban"],
+        enabled: () => !isModcu(),
         pick: withTarget,
       },
       {
@@ -172,7 +196,7 @@ export class UserBots {
           "Siapa yang akan kamu bunuh",
           "Siapa yang akan Anda bunuh",
         ],
-        enabled: () => !!Cache.get(`afkmodeMani`),
+        enabled: () => !!Cache.get(`afkmodeMani`) && !isModcu(),
         pick: withTarget,
       },
       {
@@ -185,7 +209,7 @@ export class UserBots {
       },
       {
         triggers: ["Who shall we look", "Siapa yang kita selidiki"],
-        enabled: () => !!Cache.get(`afkmodeDonCh`),
+        enabled: () => !!Cache.get(`afkmodeDonCh`) && !isModcu(),
         pick: random,
       },
     ];
@@ -254,6 +278,7 @@ export class UserBots {
       "afkmodeDur",
       "continu",
       "allroleAfk",
+      "afkmodePeran",
     ].forEach((k) => Cache.del(k));
   }
 

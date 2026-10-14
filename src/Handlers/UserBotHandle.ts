@@ -56,7 +56,10 @@ export class UserBotHandle {
   public handle() {
     if (this.isDisabled || this.msg.out || !this.fromMafiaBot) return;
 
-    if (String(this.msg.chatId) === String(Cache.get(`groupTarget`)) && Cache.get(`joined`)) {
+    if (
+      String(this.msg.chatId) === String(Cache.get(`groupTarget`)) &&
+      Cache.get(`joined`)
+    ) {
       this.handleGroupMessage();
     }
     if (this.msg.isPrivate && Cache.get(`begins`)) {
@@ -128,11 +131,11 @@ export class UserBotHandle {
       !has(text, "Are you sure about lynching", "Anda yakin ingin menggantung")
     )
       return;
-    if (!text.includes(String(Cache.get(`target`)))) return;
+    if (String(Cache.get(`afkmodePeran`)) === "modcu") return;
+    if (!has(text, String(Cache.get(`target`)))) return;
     if (Cache.get(`useVote`) !== "yes") return;
 
-    const btn = buttons.find((b) => b.text?.includes("👎") && isCallback(b));
-    UserBots.clickButton(this.ctx, this.msg, btn);
+    UserBots.clickButton(this.ctx, this.msg, buttons[1]);
   }
 
   private trackTotal(text: string) {
