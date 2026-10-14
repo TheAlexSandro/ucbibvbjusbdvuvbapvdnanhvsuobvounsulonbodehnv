@@ -59,7 +59,7 @@ export class UserBotHandle {
     if (String(this.msg.chatId) === String(Cache.get(`groupTarget`))) {
       this.handleGroupMessage();
     }
-    if (this.msg.isPrivate) {
+    if (Cache.get(`groupTarget`) && this.msg.isPrivate) {
       this.handlePrivateMessage();
     }
   }
