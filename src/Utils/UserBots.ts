@@ -153,9 +153,7 @@ export class UserBots {
           "Siapa yang akan Anda lindungi",
         ],
         pick: () =>
-          pickRandom(
-            callbacks.filter((b) => !target || b.text !== target),
-          ),
+          pickRandom(callbacks.filter((b) => !target || b.text !== target)),
       },
       {
         triggers: ["Time to seek the guilty", "Saatnya mencari yang bersalah"],
@@ -253,11 +251,12 @@ export class UserBots {
       "afkmodeDonCh",
       "useVote",
       "mode",
-      "target",
       "afkmodeDur",
       "continu",
       "allroleAfk",
       "target",
+      "groupTarget",
+      "groupName",
     ].forEach((k) => Cache.del(k));
   }
 
@@ -274,7 +273,6 @@ export class UserBots {
       "dead",
       "hasSent",
       "hasSentGame",
-      "target",
       "roleSepaDon",
       "hasSentWarnDoc",
       "hasSentWarnKill",
