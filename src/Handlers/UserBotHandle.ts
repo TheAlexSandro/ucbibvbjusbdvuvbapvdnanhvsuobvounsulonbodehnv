@@ -164,6 +164,13 @@ export class UserBotHandle {
     }
 
     if (
+      has(text, "Game over", "Permainan telah berakhir") &&
+      Cache.get(`role`)
+    ) {
+      UserBots.clearAll();
+    }
+
+    if (
       has(
         text,
         "Couldn't join the game",
