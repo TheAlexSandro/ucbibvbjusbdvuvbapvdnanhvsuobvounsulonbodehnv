@@ -255,8 +255,6 @@ export class UserBots {
       "continu",
       "allroleAfk",
       "target",
-      "groupTarget",
-      "groupName",
     ].forEach((k) => Cache.del(k));
   }
 

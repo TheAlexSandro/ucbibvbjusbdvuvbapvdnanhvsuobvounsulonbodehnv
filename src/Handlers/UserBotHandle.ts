@@ -56,10 +56,10 @@ export class UserBotHandle {
   public handle() {
     if (this.isDisabled || this.msg.out || !this.fromMafiaBot) return;
 
-    if (String(this.msg.chatId) === String(Cache.get(`groupTarget`))) {
+    if (String(this.msg.chatId) === String(Cache.get(`groupTarget`)) && Cache.get(`role`)) {
       this.handleGroupMessage();
     }
-    if (Cache.get(`groupTarget`) && this.msg.isPrivate) {
+    if (Cache.get(`role`) && this.msg.isPrivate) {
       this.handlePrivateMessage();
     }
   }
