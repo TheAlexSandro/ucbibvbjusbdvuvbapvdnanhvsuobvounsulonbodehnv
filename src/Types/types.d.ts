@@ -77,7 +77,8 @@ export type WorkerToMain =
     }
   | { type: "joinFailed"; clientIndex: number }
   | { type: "log"; text: string }
-  | { type: "shutdownDone" };
+  | { type: "shutdownDone" }
+  | { type: "joined" };
 export type MainToWorker =
   | { type: "init" }
   | { type: "updateState"; state: SharedState }

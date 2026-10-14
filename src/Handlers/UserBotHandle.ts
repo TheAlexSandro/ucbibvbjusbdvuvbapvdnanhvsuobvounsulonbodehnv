@@ -56,10 +56,10 @@ export class UserBotHandle {
   public handle() {
     if (this.isDisabled || this.msg.out || !this.fromMafiaBot) return;
 
-    if (String(this.msg.chatId) === String(Cache.get(`groupTarget`))) {
+    if (String(this.msg.chatId) === String(Cache.get(`groupTarget`)) && Cache.get(`joined`)) {
       this.handleGroupMessage();
     }
-    if (this.msg.isPrivate) {
+    if (this.msg.isPrivate && Cache.get(`begins`)) {
       this.handlePrivateMessage();
     }
   }
@@ -73,7 +73,6 @@ export class UserBotHandle {
 
     if (has(text, "The game begins", "Permainan dimulai")) {
       this.markGameBegins();
-      if (Cache.get(`join`) && !Cache.get(`continu`)) Cache.del(`join`);
     }
 
     if (
@@ -118,9 +117,11 @@ export class UserBotHandle {
     Cache.set(`begins`, true);
     Cache.del(`registrationHandled`);
     Cache.del(`hasSentGame`);
+    if (Cache.get(`join`) && !Cache.get(`continu`)) Cache.del(`join`);
   }
 
   private handleLynchConfirm() {
+    if (!Cache.get(`begins`)) return;
     const { text, buttons } = this.msg;
     if (!buttons) return;
     if (

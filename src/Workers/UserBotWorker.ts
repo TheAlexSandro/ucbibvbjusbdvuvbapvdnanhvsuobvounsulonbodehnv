@@ -115,6 +115,7 @@ const handleRegistration = (msg: any, t0: number) => {
   if (!startParam) return;
   remember(handledRegistrations, key);
 
+  let joinedNotified = false;
   slots.map((slot) => {
     if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) return;
     const tSend = performance.now();
@@ -123,6 +124,10 @@ const handleRegistration = (msg: any, t0: number) => {
       .sendMessage(slot.mafiaEntity, { message: `/start ${startParam}` })
       .then(() => {
         const done = performance.now();
+        if (!joinedNotified) {
+          joinedNotified = true;
+          send({ type: "joined" });
+        }
         log(
           `[lat TS] join OK [${slot.userId}] dispatch=${(tSend - t0).toFixed(1)}ms rtt=${(done - tSend).toFixed(1)}ms total=${(done - t0).toFixed(1)}ms`,
         );

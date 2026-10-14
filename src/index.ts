@@ -81,6 +81,7 @@ const main = async () => {
       ? `⚠️ <b>Server Online With Caution</b>\n${connected.size}/${total} tersambung setelah 90 detik. Sisanya mungkin session invalid atau terkena limit.`
       : `✅ <b>Server Online!</b>\n${total}/${total} userbot aktif.`;
 
+    if (process.env["IS_DEV"]) return;
     Promise.resolve(
       Utils.sendMessageToAdmin(bot, list ? `${pesan}\n\n${list}` : pesan),
     ).catch((err) => console.error("Gagal kirim notif admin:", err));

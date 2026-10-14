@@ -278,6 +278,7 @@ export class UserBots {
       "dayNow",
       "night",
       "registrationHandled",
+      "joined",
     ].forEach((k) => Cache.del(k));
 
     String(process.env["USERBOT"])

@@ -1,6 +1,7 @@
 import { Worker } from "worker_threads";
 import path from "path";
 import { fileURLToPath } from "url";
+import { Cache } from "../Utils/Caches";
 
 import type {
   ClientRef,
@@ -140,6 +141,10 @@ export class WorkerManager {
         const ref = this.refs.get(refKey(w, msg.clientIndex));
         if (ref) this.opts.onJoinFailed(ref, this.users.get(ref.userId));
         return;
+      }
+      case "joined": {
+        if (!Cache.get(`joined`)) Cache.set(`joined`, true);
+        break;
       }
       case "log":
         console.log(msg.text);
