@@ -56,7 +56,7 @@ export class UserBotHandle {
   public handle() {
     if (this.isDisabled || this.msg.out || !this.fromMafiaBot) return;
 
-    if (String(this.msg.chatId) === String(Cache.get(`groupTarget`)) && Cache.get(`role`)) {
+    if (String(this.msg.chatId) === String(Cache.get(`groupTarget`))) {
       this.handleGroupMessage();
     }
     if (Cache.get(`role`) && this.msg.isPrivate) {
