@@ -164,6 +164,29 @@ export class BotHandle {
     },
   ];
 
+  private buildSmodeButton(): any[] {
+    let keyb: any[] = [];
+    keyb.push([
+      btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
+      btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
+    ]);
+    keyb.push(...this.buildRoleButtons("afkmode_role"));
+    keyb.push([
+      btn.text(
+        `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
+        `afkmode_afkrl_none`,
+      ),
+      btn.text(
+        `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
+        `afkmode_conti_none`,
+      ),
+    ]);
+    keyb.push([btn.text(`🔮 Aksi Peran`, `afkmode_peran_none`)]);
+    keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
+
+    return keyb;
+  }
+
   private buildRoleButtons(callbackPrefix: string): any[] {
     return BotHandle.ROLES.map((role) => [
       btn.text(
@@ -530,24 +553,7 @@ export class BotHandle {
               pesan += `\n\n• 🎎 Afk Semua - membuat semua userbot afk hingga permainan berakhir.`;
               pesan += `\n• 🔁 Continuous - aktifkan fitur ini untuk membuat smode berjalan selama mungkin tanpa bergantung pada jumlah hari yang ditentukan.`;
 
-              let keyb: any[] = [];
-              keyb.push([
-                btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
-                btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
-              ]);
-              keyb.push(...this.buildRoleButtons("afkmode_role"));
-              keyb.push([
-                btn.text(
-                  `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
-                  `afkmode_afkrl_none`,
-                ),
-                btn.text(
-                  `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
-                  `afkmode_conti_none`,
-                ),
-              ]);
-              keyb.push([btn.text(`🔮 Aksi Peran`, `afkmode_peran_none`)]);
-              keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
+              let keyb = this.buildSmodeButton();
 
               this.bot.api.editMessageText(
                 chat?.id!,
@@ -2037,25 +2043,7 @@ export class BotHandle {
             pesan += `\n\n• 🎎 Afk Semua - membuat semua userbot afk hingga permainan berakhir.`;
             pesan += `\n• 🔁 Continuous - aktifkan fitur ini untuk membuat smode berjalan selama mungkin tanpa bergantung pada jumlah hari yang ditentukan.`;
 
-            let keyb: any[] = [];
-            keyb.push([
-              btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
-              btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
-            ]);
-            keyb.push(...this.buildRoleButtons("afkmode_role"));
-            keyb.push([
-              btn.text(
-                `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
-                `afkmode_afkrl_none`,
-              ),
-              btn.text(
-                `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
-                `afkmode_conti_none`,
-              ),
-            ]);
-            keyb.push([btn.text(`🔮 Aksi Peran`, `afkmode_peran_none`)]);
-            keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
-
+            let keyb = this.buildSmodeButton();
             this.ctx
               .editMessageText(pesan, {
                 parse_mode: "HTML",
@@ -2131,23 +2119,7 @@ export class BotHandle {
             Utils.writeLog(
               `[${new Date()}] ${Utils.getNames(this.ctx)} - mengubah konfigurasi afk semua ke: ${Cache.get(`allroleAfk`) ? "on" : "off"}.\n`,
             );
-            let keyb: any[] = [];
-            keyb.push([
-              btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
-              btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
-            ]);
-            keyb.push(...this.buildRoleButtons("afkmode_role"));
-            keyb.push([
-              btn.text(
-                `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
-                `afkmode_afkrl_none`,
-              ),
-              btn.text(
-                `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
-                `afkmode_conti_none`,
-              ),
-            ]);
-            keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
+            let keyb = this.buildSmodeButton();
 
             this.ctx
               .editMessageReplyMarkup({
@@ -2171,23 +2143,7 @@ export class BotHandle {
             Utils.writeLog(
               `[${new Date()}] ${Utils.getNames(this.ctx)} - mengubah konfigurasi continuous ke: ${Cache.get(`continu`) ? "on" : "off"}.\n`,
             );
-            let keyb: any[] = [];
-            keyb.push([
-              btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
-              btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
-            ]);
-            keyb.push(...this.buildRoleButtons("afkmode_role"));
-            keyb.push([
-              btn.text(
-                `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
-                `afkmode_afkrl_none`,
-              ),
-              btn.text(
-                `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
-                `afkmode_conti_none`,
-              ),
-            ]);
-            keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
+            let keyb = this.buildSmodeButton();
 
             this.ctx
               .editMessageReplyMarkup({
@@ -2236,23 +2192,7 @@ export class BotHandle {
             Utils.writeLog(
               `[${new Date()}] ${Utils.getNames(this.ctx)} - mengubah role ${mc[2]} ke ${Cache.get(`afkmode${mc[2]}`) ? "manual" : "otomatis"}.\n`,
             );
-            let keyb: any[] = [];
-            keyb.push([
-              btn.text(`🗳 Mode Pemilihan`, `afkmode_election_none`),
-              btn.text(`🏙 Ganti Hari`, `afkmode_day_none`),
-            ]);
-            keyb.push(...this.buildRoleButtons("afkmode_role"));
-            keyb.push([
-              btn.text(
-                `🎎 Afk Semua ${Cache.get(`allroleAfk`) ? "✅" : "❌"}`,
-                `afkmode_afkrl_none`,
-              ),
-              btn.text(
-                `🔁 Continuous ${Cache.get(`continu`) ? "✅" : "❌"}`,
-                `afkmode_conti_none`,
-              ),
-            ]);
-            keyb.push([btn.text(`⛔️ Hentikan`, `afkmode_disable_none`)]);
+            let keyb = this.buildSmodeButton();
 
             this.ctx
               .editMessageReplyMarkup({
