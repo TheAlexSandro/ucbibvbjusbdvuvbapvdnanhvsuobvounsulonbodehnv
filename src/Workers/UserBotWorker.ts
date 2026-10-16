@@ -220,6 +220,16 @@ const handleAttentionJoin = (idx: number, msg: any) => {
     .catch(() => send({ type: "joinFailed", clientIndex: idx }));
 };
 
+const measurePing = async (client: TelegramClient, n = 3) => {
+  const samples: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = performance.now();
+    await client.invoke(new Api.Ping({ pingId: generateRandomBigInt() }));
+    samples.push(performance.now() - t);
+  }
+  return Math.min(...samples);
+};
+
 const clients = new Map<number, TelegramClient>();
 let shuttingDown = false;
 let initDone: Promise<unknown> = Promise.resolve();
@@ -246,9 +256,21 @@ const initClient = async (ss: string, idx: number) => {
   const mafiaEntity = await client.getEntity(trueMafia).catch(() => null);
   client.setLogLevel(LogLevel.NONE);
   slots[idx] = { client, userId: String(me.id), mafiaEntity };
+  const ping = await measurePing(client).catch(() => -1);
   log(
-    `[init] ${me.id} (${me.firstName}) dc=${(client.session as any).dcId} workerClient=${idx}`,
+    `[init] ${me.id} (${me.firstName}) dc=${(client.session as any).dcId} ping=${ping.toFixed(0)}ms workerClient=${idx}`,
   );
+
+  setInterval(async () => {
+    const t = performance.now();
+    try {
+      await client.invoke(new Api.Ping({ pingId: generateRandomBigInt() }));
+      const ms = performance.now() - t;
+      if (ms > 150) log(`[ping] ${me.id} ${ms.toFixed(0)}ms`);
+    } catch {
+      log(`[ping] ${me.id} GAGAL`);
+    }
+  }, 20_000).unref();
 
   client.addEventHandler(
     (event: any) => {
