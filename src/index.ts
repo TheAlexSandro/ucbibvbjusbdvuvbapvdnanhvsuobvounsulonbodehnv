@@ -138,7 +138,7 @@ const main = async () => {
       registrationHandled: Boolean(Cache.get(`registrationHandled`)),
     });
 
-  const syncTimer = setInterval(pushState, 5);
+  const syncTimer = setInterval(pushState, 1);
 
   bot.start({ drop_pending_updates: true }).catch((err) => {
     console.error("Bot berhenti dengan error:", err);

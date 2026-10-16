@@ -166,13 +166,7 @@ const peekRaw = (update: any, noDispatch?: boolean) => {
 
   for (const u of list) {
     const c = u?.className;
-    if (
-      c !== "UpdateNewMessage" &&
-      c !== "UpdateNewChannelMessage" &&
-      c !== "UpdateEditMessage" &&
-      c !== "UpdateEditChannelMessage"
-    )
-      continue;
+    if (c !== "UpdateNewMessage" && c !== "UpdateNewChannelMessage") continue;
 
     const m = u.message;
     if (!m || m.className !== "Message" || m.out) continue;
@@ -274,7 +268,6 @@ const initClient = async (ss: string, idx: number) => {
 
   client.addEventHandler(
     (event: any) => {
-      const t0 = performance.now();
       const msg = event.message;
       if (msg.out) return;
       handleAttentionJoin(idx, msg);
@@ -285,7 +278,6 @@ const initClient = async (ss: string, idx: number) => {
 
   client.addEventHandler(
     (event: any) => {
-      const t0 = performance.now();
       const msg = event.message;
       if (msg.out) return;
       send({
