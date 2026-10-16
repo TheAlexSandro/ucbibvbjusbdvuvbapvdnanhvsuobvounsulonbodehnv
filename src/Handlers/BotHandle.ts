@@ -221,6 +221,7 @@ export class BotHandle {
         pesan += `\n• /login - masukkan akun Anda dalam script.`;
         pesan += `\n• /restart - mulai ulang server untuk menerapkan perubahan/memperbaiki sesuatu.`;
         pesan += `\n• /log - lihat log.`;
+        pesan += `\n\nUpdated on: 16/10/26`
 
         this.ctx.reply(pesan, { parse_mode: "HTML" });
         Utils.writeLog(
