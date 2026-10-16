@@ -2,6 +2,8 @@ import { parentPort, workerData } from "worker_threads";
 import { Api, TelegramClient } from "teleproto";
 import { StringSession } from "teleproto/sessions/index.js";
 import { NewMessage, EditedMessage } from "teleproto/events/index.js";
+import { generateRandomBigInt } from "teleproto/Helpers.js";
+import { LogLevel } from "teleproto/extensions/Logger.js";
 import type {
   ButtonPayload,
   CommandArgs,
@@ -106,34 +108,43 @@ const handleRegistration = (msg: any, t0: number) => {
   if (!["direct", "next"].includes(state.joinMode)) return;
   if (String(msg.chatId) !== state.groupTarget) return;
 
-  const key = `${msg.chatId}:${msg.id}`;
-  if (handledRegistrations.has(key)) return;
-
   const url = findJoinUrl(msg);
   if (!url) return;
   const startParam = new URL(url).searchParams.get("start");
   if (!startParam) return;
+
+  const key = `${msg.chatId}:${startParam}`;
+  if (handledRegistrations.has(key)) return;
+
   remember(handledRegistrations, key);
+  send({ type: "joined" });
+  const results: string[] = [];
+  const jobs = slots.map((slot) => {
+    if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) return null;
 
-  let joinedNotified = false;
-  slots.map((slot) => {
-    if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) return;
     const tSend = performance.now();
-
-    slot.client
-      .sendMessage(slot.mafiaEntity, { message: `/start ${startParam}` })
+    return slot.client
+      .invoke(
+        new Api.messages.StartBot({
+          bot: slot.mafiaEntity,
+          peer: slot.mafiaEntity,
+          randomId: generateRandomBigInt(),
+          startParam,
+        }),
+      )
       .then(() => {
-        const done = performance.now();
-        if (!joinedNotified) {
-          joinedNotified = true;
-          send({ type: "joined" });
-        }
-        log(
-          `[lat TS] join OK [${slot.userId}] dispatch=${(tSend - t0).toFixed(1)}ms rtt=${(done - tSend).toFixed(1)}ms total=${(done - t0).toFixed(1)}ms`,
+        results.push(
+          `${slot.userId}=${(performance.now() - tSend).toFixed(0)}ms`,
         );
       })
-      .catch(() => {});
+      .catch(() => {
+        results.push(`${slot.userId}=GAGAL`);
+      });
   });
+
+  Promise.allSettled(jobs).then(() =>
+    log(`[lat TS] join: ${results.join(" | ")}`),
+  );
 };
 
 const handleAttentionJoin = (idx: number, msg: any) => {
@@ -184,6 +195,7 @@ const initClient = async (ss: string, idx: number) => {
   const me: any = await client.getMe();
   await client.invoke(new Api.updates.GetState()).catch(() => {});
   const mafiaEntity = await client.getEntity(trueMafia).catch(() => null);
+  client.setLogLevel(LogLevel.NONE);
   slots[idx] = { client, userId: String(me.id), mafiaEntity };
   log(
     `[init] ${me.id} (${me.firstName}) dc=${(client.session as any).dcId} workerClient=${idx}`,

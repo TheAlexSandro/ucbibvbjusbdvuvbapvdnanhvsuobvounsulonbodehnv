@@ -180,10 +180,25 @@ export class UserBotHandle {
         "Couldn't join the game",
         "Tidak dapat bergabung",
         "Anda baru saja keluar",
-        "You just",
+        "You have recently left",
+        "Kamu sedang bermain",
+        "Anda sedang bermain",
+        "You're currently playing",
       )
     ) {
-      this.notifyAdmin(`🤚 ${this.mention} tidak dapat bergabung.`);
+      const pesan = has(text, "Anda baru saja keluar", "You have recently left")
+        ? "baru saja keluar permainan."
+        : has(text, "Couldn't join the game", "Tidak dapat bergabung")
+          ? "terlambat atau permainan tidak ada."
+          : has(
+                text,
+                "Kamu sedang bermain",
+                "Anda sedang bermain",
+                "You're currently playing",
+              )
+            ? "sedang bermain di grup lain."
+            : "-";
+      this.notifyAdmin(`🤚 ${this.mention} tidak dapat bergabung.\nKarena: ${pesan}`);
     }
 
     if (
@@ -244,7 +259,10 @@ export class UserBotHandle {
         "you're already in the game",
         "Anda sudah dalam game",
         "Anda baru saja keluar",
-        "You just",
+        "You have recently left",
+        "Kamu sedang bermain",
+        "Anda sedang bermain",
+        "You're currently playing",
       )
     )
       return true;
