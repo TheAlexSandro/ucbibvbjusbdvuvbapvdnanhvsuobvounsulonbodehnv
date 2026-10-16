@@ -127,7 +127,7 @@ const main = async () => {
     new BotHandle(bot, ctx, manager).callback(),
   );
 
-  const syncTimer = setInterval(() => {
+  const pushState = () =>
     manager.syncState({
       groupTarget: String(Cache.get(`groupTarget`) ?? ""),
       joinMode: String(Cache.get(`join`) ?? ""),
@@ -137,7 +137,8 @@ const main = async () => {
         .map((u) => u.id),
       registrationHandled: Boolean(Cache.get(`registrationHandled`)),
     });
-  }, 200);
+
+  const syncTimer = setInterval(pushState, 5);
 
   bot.start({ drop_pending_updates: true }).catch((err) => {
     console.error("Bot berhenti dengan error:", err);

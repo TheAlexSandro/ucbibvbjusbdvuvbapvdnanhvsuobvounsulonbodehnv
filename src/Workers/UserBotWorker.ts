@@ -4,6 +4,7 @@ import { StringSession } from "teleproto/sessions/index.js";
 import { NewMessage, EditedMessage } from "teleproto/events/index.js";
 import { generateRandomBigInt } from "teleproto/Helpers.js";
 import { LogLevel } from "teleproto/extensions/Logger.js";
+import { getPeerId } from "teleproto/Utils.js";
 import type {
   ButtonPayload,
   CommandArgs,
@@ -104,16 +105,14 @@ const findJoinUrl = (msg: any): string | null => {
   return null;
 };
 
-const handleRegistration = (msg: any, t0: number) => {
+const triggerJoin = (chatId: string, url: string, t0: number, via: string) => {
   if (!["direct", "next"].includes(state.joinMode)) return;
-  if (String(msg.chatId) !== state.groupTarget) return;
+  if (chatId !== state.groupTarget) return;
 
-  const url = findJoinUrl(msg);
-  if (!url) return;
   const startParam = new URL(url).searchParams.get("start");
   if (!startParam) return;
 
-  const key = `${msg.chatId}:${startParam}`;
+  const key = `${chatId}:${startParam}`;
   if (handledRegistrations.has(key)) return;
 
   remember(handledRegistrations, key);
@@ -143,8 +142,49 @@ const handleRegistration = (msg: any, t0: number) => {
   });
 
   Promise.allSettled(jobs).then(() =>
-    log(`[lat TS] join: ${results.join(" | ")}`),
+    log(
+      `[lat TS] join via=${via} dispatch=${(performance.now() - t0).toFixed(1)}ms: ${results.join(" | ")}`,
+    ),
   );
+};
+
+const botNumericId = /^\d+$/.test(String(mafiaBotId))
+  ? String(mafiaBotId)
+  : null;
+
+const peekRaw = (update: any, noDispatch?: boolean) => {
+  if (noDispatch) return;
+  if (!["direct", "next"].includes(state.joinMode)) return;
+  const t0 = performance.now();
+
+  const list: any[] =
+    update instanceof Api.Updates || update instanceof Api.UpdatesCombined
+      ? update.updates
+      : update instanceof Api.UpdateShort
+        ? [update.update]
+        : [update];
+
+  for (const u of list) {
+    const c = u?.className;
+    if (
+      c !== "UpdateNewMessage" &&
+      c !== "UpdateNewChannelMessage" &&
+      c !== "UpdateEditMessage" &&
+      c !== "UpdateEditChannelMessage"
+    )
+      continue;
+
+    const m = u.message;
+    if (!m || m.className !== "Message" || m.out) continue;
+    if (Date.now() / 1000 - (m.editDate ?? m.date) > 60) continue;
+    if (botNumericId && String(m.fromId?.userId) !== botNumericId) continue;
+
+    const url = findJoinUrl(m);
+    if (!url || !m.peerId) continue;
+
+    triggerJoin(String(getPeerId(m.peerId)), url, t0, "raw");
+    return;
+  }
 };
 
 const handleAttentionJoin = (idx: number, msg: any) => {
@@ -190,6 +230,15 @@ const initClient = async (ss: string, idx: number) => {
   });
   clients.set(idx, client);
 
+  const um = (client as any).updateManager;
+  const origOnUpdates = um.onUpdates.bind(um);
+  um.onUpdates = (u: any, noDispatch?: boolean) => {
+    try {
+      peekRaw(u, noDispatch);
+    } catch {}
+    return origOnUpdates(u, noDispatch);
+  };
+
   await client.connect();
   if (shuttingDown) return;
   const me: any = await client.getMe();
@@ -206,7 +255,6 @@ const initClient = async (ss: string, idx: number) => {
       const t0 = performance.now();
       const msg = event.message;
       if (msg.out) return;
-      handleRegistration(msg, t0);
       handleAttentionJoin(idx, msg);
       send({ type: "message", clientIndex: idx, payload: serializeMsg(msg) });
     },
@@ -218,7 +266,6 @@ const initClient = async (ss: string, idx: number) => {
       const t0 = performance.now();
       const msg = event.message;
       if (msg.out) return;
-      handleRegistration(msg, t0);
       send({
         type: "editedMessage",
         clientIndex: idx,
