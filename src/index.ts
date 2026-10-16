@@ -137,7 +137,6 @@ const main = async () => {
         .map((u) => u.id),
       registrationHandled: Boolean(Cache.get(`registrationHandled`)),
     });
-
   const syncTimer = setInterval(pushState, 1);
 
   bot.start({ drop_pending_updates: true }).catch((err) => {
