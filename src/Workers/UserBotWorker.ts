@@ -263,13 +263,15 @@ const initClient = async (ss: string, idx: number) => {
 
   setInterval(async () => {
     const t = performance.now();
-    try {
-      await client.invoke(new Api.Ping({ pingId: generateRandomBigInt() }));
-      const ms = performance.now() - t;
-      if (ms > 150) log(`[ping] ${me.id} ${ms.toFixed(0)}ms`);
-    } catch {
-      log(`[ping] ${me.id} GAGAL`);
-    }
+    client
+      .invoke(new Api.Ping({ pingId: generateRandomBigInt() }))
+      .then(() => {
+        const ms = performance.now() - t;
+        if (ms > 150) log(`[ping] ${me.id} ${ms.toFixed(0)}ms`);
+      })
+      .catch(() => {
+        log(`[ping] ${me.id} GAGAL`);
+      });
   }, 20_000).unref();
 
   client.addEventHandler(
