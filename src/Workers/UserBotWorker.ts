@@ -105,7 +105,12 @@ const findJoinUrl = (msg: any): string | null => {
   return null;
 };
 
-const triggerJoin = (chatId: string, url: string, t0: number, via: string) => {
+const handleRegistrationJoin = (
+  chatId: string,
+  url: string,
+  t0: number,
+  via: string,
+) => {
   if (!["direct", "next"].includes(state.joinMode)) return;
   if (chatId !== state.groupTarget) return;
 
@@ -148,39 +153,6 @@ const triggerJoin = (chatId: string, url: string, t0: number, via: string) => {
   );
 };
 
-const botNumericId = /^\d+$/.test(String(mafiaBotId))
-  ? String(mafiaBotId)
-  : null;
-
-const peekRaw = (update: any, noDispatch?: boolean) => {
-  if (noDispatch) return;
-  if (!["direct", "next"].includes(state.joinMode)) return;
-  const t0 = performance.now();
-
-  const list: any[] =
-    update instanceof Api.Updates || update instanceof Api.UpdatesCombined
-      ? update.updates
-      : update instanceof Api.UpdateShort
-        ? [update.update]
-        : [update];
-
-  for (const u of list) {
-    const c = u?.className;
-    if (c !== "UpdateNewMessage" && c !== "UpdateNewChannelMessage") continue;
-
-    const m = u.message;
-    if (!m || m.className !== "Message" || m.out) continue;
-    if (Date.now() / 1000 - (m.editDate ?? m.date) > 60) continue;
-    if (botNumericId && String(m.fromId?.userId) !== botNumericId) continue;
-
-    const url = findJoinUrl(m);
-    if (!url || !m.peerId) continue;
-
-    triggerJoin(String(getPeerId(m.peerId)), url, t0, "raw");
-    return;
-  }
-};
-
 const handleAttentionJoin = (idx: number, msg: any) => {
   const slot = slots[idx];
   if (!slot || !msg.isPrivate || state.joinMode !== "next") return;
@@ -214,6 +186,40 @@ const handleAttentionJoin = (idx: number, msg: any) => {
     .catch(() => send({ type: "joinFailed", clientIndex: idx }));
 };
 
+const botNumericId = /^\d+$/.test(String(mafiaBotId))
+  ? String(mafiaBotId)
+  : null;
+
+const peekRaw = (update: any, idx: number, noDispatch?: boolean) => {
+  if (noDispatch) return;
+  if (!["direct", "next"].includes(state.joinMode)) return;
+  const t0 = performance.now();
+
+  const list: any[] =
+    update instanceof Api.Updates || update instanceof Api.UpdatesCombined
+      ? update.updates
+      : update instanceof Api.UpdateShort
+        ? [update.update]
+        : [update];
+
+  for (const u of list) {
+    const c = u?.className;
+    if (c !== "UpdateNewMessage" && c !== "UpdateNewChannelMessage") continue;
+
+    const m = u.message;
+    if (!m || m.className !== "Message" || m.out) continue;
+    if (Date.now() / 1000 - (m.editDate ?? m.date) > 60) continue;
+    if (botNumericId && String(m.fromId?.userId) !== botNumericId) continue;
+
+    const url = findJoinUrl(m);
+    if (!url || !m.peerId) continue;
+
+    handleRegistrationJoin(String(getPeerId(m.peerId)), url, t0, "raw");
+    handleAttentionJoin(idx, m);
+    return;
+  }
+};
+
 const measurePing = async (client: TelegramClient, n = 3) => {
   const samples: number[] = [];
   for (let i = 0; i < n; i++) {
@@ -238,7 +244,7 @@ const initClient = async (ss: string, idx: number) => {
   const origOnUpdates = um.onUpdates.bind(um);
   um.onUpdates = (u: any, noDispatch?: boolean) => {
     try {
-      peekRaw(u, noDispatch);
+      peekRaw(u, idx, noDispatch);
     } catch {}
     return origOnUpdates(u, noDispatch);
   };
@@ -270,7 +276,6 @@ const initClient = async (ss: string, idx: number) => {
     (event: any) => {
       const msg = event.message;
       if (msg.out) return;
-      handleAttentionJoin(idx, msg);
       send({ type: "message", clientIndex: idx, payload: serializeMsg(msg) });
     },
     new NewMessage({ fromUsers: [mafiaBotId] }),
