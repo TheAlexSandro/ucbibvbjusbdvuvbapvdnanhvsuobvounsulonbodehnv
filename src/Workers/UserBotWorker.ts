@@ -126,19 +126,16 @@ const handleRegistrationJoin = (
   const jobs = slots.map((slot) => {
     if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) return null;
 
-    // client
-    //   .invoke(
-    //     new Api.messages.StartBot({
-    //       bot: slot.mafiaEntity,
-    //       peer: slot.mafiaEntity,
-    //       randomId: generateRandomBigInt(),
-    //       startParam,
-    //     }),
-    //   )
-
     const tSend = performance.now();
     return slot.client
-      .sendMessage(slot.mafiaEntity, { message: `/start ${startParam}` })
+      .invoke(
+        new Api.messages.StartBot({
+          bot: slot.mafiaEntity,
+          peer: slot.mafiaEntity,
+          randomId: generateRandomBigInt(),
+          startParam,
+        }),
+      )
       .then(() => {
         results.push(
           `${slot.userId}=${(performance.now() - tSend).toFixed(0)}ms`,
