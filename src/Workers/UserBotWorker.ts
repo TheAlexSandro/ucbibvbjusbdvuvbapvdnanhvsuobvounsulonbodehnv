@@ -261,19 +261,6 @@ const initClient = async (ss: string, idx: number) => {
     `[init] ${me.id} (${me.firstName}) dc=${(client.session as any).dcId} ping=${ping.toFixed(0)}ms workerClient=${idx}`,
   );
 
-  setInterval(async () => {
-    const t = performance.now();
-    client
-      .invoke(new Api.Ping({ pingId: generateRandomBigInt() }))
-      .then(() => {
-        const ms = performance.now() - t;
-        if (ms > 150) log(`[ping] ${me.id} ${ms.toFixed(0)}ms`);
-      })
-      .catch(() => {
-        log(`[ping] ${me.id} GAGAL`);
-      });
-  }, 20_000).unref();
-
   client.addEventHandler(
     (event: any) => {
       const msg = event.message;
