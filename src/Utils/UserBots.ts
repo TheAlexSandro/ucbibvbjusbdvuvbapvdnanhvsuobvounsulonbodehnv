@@ -50,6 +50,7 @@ const upsertCsv = (key: string, userId: string, value: string) => {
 
 interface AfkRule {
   triggers: string[];
+  delay?: number;
   enabled?: () => boolean;
   pick: () => ButtonPayload | undefined;
 }
@@ -83,9 +84,11 @@ export class UserBots {
 
     const id = Object.entries(roles).find(([, role]) =>
       suicideRoles.includes(role.toLowerCase()),
-    )?.[0];
+    );
+    if (!id) return null;
 
-    const name = id ? names[id] : null;
+    const name = id[0] ? names[id[0]] : null;
+    if (!name) return null;
     Cache.set(`suicide`, name);
     return name;
   }
@@ -94,7 +97,7 @@ export class UserBots {
     ctx: ClickCtx,
     msg: MessagePayload,
     btn: ButtonPayload | undefined,
-    delay = Number(process.env["DELAY_CLICK"] ?? 100),
+    delay = Number(process.env["DELAY_CLICK"] ?? 10),
     retriesLeft = 2,
   ) {
     if (!btn) return;
@@ -149,6 +152,7 @@ export class UserBots {
         triggers: ["act!", "bertindak!"],
         enabled: () => !!Cache.get(`afkmodeDet`),
         pick: () => buttons[0],
+        delay: 100,
       },
       {
         triggers: [
@@ -217,7 +221,7 @@ export class UserBots {
     const rule = rules.find(
       (r) => has(msg.text, ...r.triggers) && (r.enabled?.() ?? true),
     );
-    if (rule) this.clickButton(ctx, msg, rule.pick());
+    if (rule) this.clickButton(ctx, msg, rule.pick(), rule.delay);
   }
 
   private static roleUpdateQueue: Promise<void> = Promise.resolve();
