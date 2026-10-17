@@ -57,9 +57,18 @@ const syncDisabledFromDb = async () => {
   console.log("Cache disabled userbot berhasil di-sync dari DB.");
 };
 
+const syncAdmin = async () => {
+  const rows = await Database.orm.public.Administrators.all();
+  rows.forEach((row) => {
+    Cache.set(`admin_${row.UserId.toString()}`, row);
+  })
+  console.log("Cache administrator berhasil di-sync dari DB.");
+}
+
 const main = async () => {
   await initDb();
   await syncDisabledFromDb();
+  await syncAdmin();
   const delay = Number(process.env["STARTUP_DELAY_MS"] ?? 0);
   if (delay > 0) {
     console.log(`Menunggu ${delay} ms sebelum menyambung userbot...`);
