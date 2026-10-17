@@ -1168,14 +1168,17 @@ export class BotHandle {
           Utils.writeLog(
             `[${new Date()}] ${Utils.getNames(this.ctx)} - melakukan restart server.\n`,
           );
-          return this.ctx
-            .editMessageText(
-              `🔄 <b>Memulai Ulang...</b>\nBot akan aktif kembali dalam beberapa detik hingga menit.`,
-              { parse_mode: "HTML" },
-            )
-            .catch(() => {})
-            .then(() => this.ctx.answerCallbackQuery().catch(() => {}))
-            .then(() => Lifecycle.restart());
+          this.ctx.deleteMessage().catch(() => {});
+          Utils.sendMessageToAdmin(
+            this.bot,
+            `🔄 <b>Server Dimulai Ulang...</b>\nBot akan aktif kembali dalam beberapa detik hingga menit.`,
+            null,
+            (r) => {
+              if (!r) return;
+              Lifecycle.restart();
+            },
+          );
+          return;
         }
       }
 

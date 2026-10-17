@@ -48,25 +48,25 @@ export class Utils {
   static sendMessageToAdmin(
     bot: Bot,
     message: string,
-    keyb?: InlineKeyboardButton[] | InlineKeyboardButton[][] | any[],
+    keyb?: InlineKeyboardButton[] | InlineKeyboardButton[][] | any[] | null,
+    callback?: (result: boolean) => void,
   ): void {
+    const options = {
+      parse_mode: "HTML" as const,
+      ...(keyb ? { reply_markup: markup.inlineKeyboard(keyb) } : {}),
+    };
+
     Database.orm.public.Administrators.select("UserId")
       .all()
-      .then((admins) => {
-        for (var i = 0; i < admins.length; i++) {
-          if (keyb) {
-            bot.api
-              .sendMessage(admins[i].UserId, message, {
-                parse_mode: "HTML",
-                reply_markup: markup.inlineKeyboard(keyb),
-              })
-              .catch(() => {});
-          } else {
-            bot.api
-              .sendMessage(admins[i].UserId, message, { parse_mode: "HTML" })
-              .catch(() => {});
-          }
-        }
+      .then((admins) =>
+        Promise.allSettled(
+          admins.map((admin) =>
+            bot.api.sendMessage(admin.UserId, message, options).catch(() => {}),
+          ),
+        ),
+      )
+      .then((results) => {
+        callback?.(results.some((r) => r.status === "fulfilled"));
       });
   }
 
