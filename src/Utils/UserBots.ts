@@ -93,6 +93,21 @@ export class UserBots {
     return name;
   }
 
+  private static getChatId(btn: ButtonPayload | undefined): string | null {
+    const getChatId = Cache.get(`currentChat`);
+    if (getChatId) return String(getChatId);
+    const decodeData = (b: ButtonPayload): string =>
+      b.type?.data ? Buffer.from(b.type.data).toString("utf8") : "";
+
+    const chatId =
+      btn && isCallback(btn)
+        ? (decodeData(btn).match(/-100\d+/)?.[0] ?? null)
+        : null;
+
+    Cache.set(`currentChat`, getChatId);
+    return chatId;
+  }
+
   static clickButton(
     ctx: ClickCtx,
     msg: MessagePayload,
@@ -101,6 +116,8 @@ export class UserBots {
     retriesLeft = 2,
   ) {
     if (!btn) return;
+    if (String(this.getChatId(btn)) !== String(Cache.get(`groupTarget`)))
+      return;
     setTimeout(() => {
       ctx.manager.clickButton(ctx.ref, msg, btn).catch((err: Error) => {
         const isTimeout =
@@ -309,6 +326,7 @@ export class UserBots {
       "registrationHandled",
       "joined",
       "target",
+      "currentChat"
     ].forEach((k) => Cache.del(k));
 
     String(process.env["USERBOT"])
