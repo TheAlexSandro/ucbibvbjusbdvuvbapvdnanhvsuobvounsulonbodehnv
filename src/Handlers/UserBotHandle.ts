@@ -168,6 +168,14 @@ export class UserBotHandle {
     }
 
     if (
+      has(text, "Game over", "Permainan telah berakhir") &&
+      Cache.get(`role`) &&
+      String(Cache.get(`currentChat`)) === String(Cache.get(`groupTarget`))
+    ) {
+      UserBots.clearAll();
+    }
+
+    if (
       has(
         text,
         "Couldn't join the game",
@@ -208,16 +216,6 @@ export class UserBotHandle {
       )
     ) {
       if (this.handleRoleMessage()) return;
-    }
-
-    if (String(Cache.get(`currentChat`)) !== String(Cache.get(`groupTarget`)))
-      return;
-
-    if (
-      has(text, "Game over", "Permainan telah berakhir") &&
-      Cache.get(`role`)
-    ) {
-      UserBots.clearAll();
     }
 
     if (
