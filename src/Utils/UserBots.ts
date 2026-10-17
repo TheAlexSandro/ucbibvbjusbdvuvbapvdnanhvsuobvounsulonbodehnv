@@ -186,6 +186,7 @@ export class UserBots {
         triggers: ["Time to seek the guilty", "Saatnya mencari yang bersalah"],
         enabled: () => String(Cache.get("useVote")) !== "no",
         pick: voteFunc,
+        delay: 100,
       },
       { triggers: ["Whose glass", "Botol kaca"], pick: random },
       { triggers: ["Who's today's", "Tentang siapa"], pick: random },
