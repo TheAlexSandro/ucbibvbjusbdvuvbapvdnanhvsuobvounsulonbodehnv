@@ -111,7 +111,6 @@ const handleRegistrationJoin = (
   t0: number,
   via: string,
 ) => {
-  if (!["direct", "next"].includes(state.joinMode)) return;
   if (chatId !== state.groupTarget) return;
 
   const startParam = new URL(url).searchParams.get("start");
