@@ -201,11 +201,15 @@ export class BotHandle {
     const chat = this.ctx.chat;
     Admins.getAdmin(String(chat?.id), (admin_err, admin) => {
       if (admin_err) return this.ctx.reply(`Something went wrong...`);
-      if (!admin)
+      if (!admin) {
+        Utils.writeLog(
+          `[${new Date()}] ${Utils.getNames(this.ctx)} (access denied) - melakukan start bot.\n`,
+        );
         return this.ctx.reply(
           `⚠️ <b>Access Denied!</b>\nYou're not authorized to use this bot.`,
           { parse_mode: "HTML" },
         );
+      }
 
       var pola = /^\/start$/i;
       if (pola.exec(this.ctx.message?.text!)) {
@@ -221,7 +225,6 @@ export class BotHandle {
         pesan += `\n• /login - masukkan akun Anda dalam script.`;
         pesan += `\n• /restart - mulai ulang server untuk menerapkan perubahan/memperbaiki sesuatu.`;
         pesan += `\n• /log - lihat log.`;
-        pesan += `\n\nUpdated on: 16/10/26`
 
         this.ctx.reply(pesan, { parse_mode: "HTML" });
         Utils.writeLog(
@@ -1249,8 +1252,8 @@ export class BotHandle {
           Utils.writeLog(
             `[${new Date()}] ${Utils.getNames(this.ctx)} - ingin menambahkan administrator.\n`,
           );
-          var pesan = `❇️ <b>Add Admin</b>`;
-          pesan += `\nSend me the user id here, the user must start the bot first.`;
+          var pesan = `❇️ <b>Tambah Admin</b>`;
+          pesan += `\nKirimkan saya ID pengguna yang ingin ditambahkan, pengguna tersebut harus memulai bot dahulu.`;
           let keyb = [];
           keyb[0] = [btn.text(`❌ Batal`, `admin_return_none`)];
 
