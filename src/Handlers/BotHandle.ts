@@ -1171,7 +1171,7 @@ export class BotHandle {
           this.ctx.deleteMessage().catch(() => {});
           Utils.sendMessageToAdmin(
             this.bot,
-            `🔄 <b>Server Dimulai Ulang...</b>\nBot akan aktif kembali dalam beberapa detik hingga menit.`,
+            `🔄 <b>Server Dimulai Ulang...</b>\n⚠️ Semua proses dihentikan\nBot akan aktif kembali dalam beberapa detik hingga menit.`,
             null,
             (r) => {
               if (!r) return;
