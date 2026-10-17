@@ -146,9 +146,10 @@ const handleRegistrationJoin = (
       });
   });
 
+  const dispatchMs = performance.now() - t0;
   Promise.allSettled(jobs).then(() =>
     log(
-      `[lat TS] join via=${via} dispatch=${(performance.now() - t0).toFixed(1)}ms: ${results.join(" | ")}`,
+      `[lat TS] join via=${via} dispatch=${dispatchMs.toFixed(1)}ms slowest=${(performance.now() - t0).toFixed(0)}ms: ${results.join(" | ")}`,
     ),
   );
 };
