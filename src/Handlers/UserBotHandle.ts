@@ -16,7 +16,7 @@ const isCallback = (b: { type?: { className?: string; data?: number[] } }) =>
   b.type?.className === "InlineButtonTypeCallback" && !!b.type?.data;
 
 const EMOJI_ROLE_REGEX =
-  /[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Modifier}\u{200D}\u{FE0F}\u{FE0E}]+\s*([A-Za-z]+(?:\s[A-Za-z]+)*)/u;
+  /[\p{Extended_Pictographic}\p{Emoji_Modifier}\u{200D}\u{FE0F}\u{FE0E}]+[ \t]*([A-Za-z]+(?:[ \t][A-Za-z]+)*)/u;
 
 export class UserBotHandle {
   private readonly info: UserInfo;
@@ -164,15 +164,8 @@ export class UserBotHandle {
     const { text, buttons } = this.msg;
 
     if (buttons) {
+      UserBots.getChatId(buttons[0]);
       UserBots.handleAfkMode(this.ctx, this.msg, buttons);
-    }
-
-    if (
-      has(text, "Game over", "Permainan telah berakhir") &&
-      Cache.get(`role`) &&
-      String(Cache.get(`currentChat`)) === String(Cache.get(`groupTarget`))
-    ) {
-      UserBots.clearAll();
     }
 
     if (
@@ -216,6 +209,15 @@ export class UserBotHandle {
       )
     ) {
       if (this.handleRoleMessage()) return;
+    }
+
+    if (UserBots.getChatId() !== String(Cache.get(`groupTarget`))) return;
+
+    if (
+      has(text, "Game over", "Permainan telah berakhir") &&
+      Cache.get(`role`)
+    ) {
+      UserBots.clearAll();
     }
 
     if (
