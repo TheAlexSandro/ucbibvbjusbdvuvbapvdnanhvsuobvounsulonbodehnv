@@ -60,10 +60,16 @@ const syncDisabledFromDb = async () => {
 const syncAdmin = async () => {
   const rows = await Database.orm.public.Administrators.all();
   rows.forEach((row) => {
+    const adm = Cache.get(`adminList`);
+    if (!adm) {
+      Cache.set(`adminList`, `${row.UserId}`);
+    } else {
+      Cache.set(`adminList`, `${adm},${row.UserId}`);
+    }
     Cache.set(`admin_${row.UserId.toString()}`, row);
-  })
+  });
   console.log("Cache administrator berhasil di-sync dari DB.");
-}
+};
 
 const main = async () => {
   await initDb();

@@ -3,6 +3,7 @@ import { Cache } from "../Utils/Caches";
 import { InlineKeyboardButton } from "grammy/types";
 import { markup } from "./Buttons";
 import { Database } from "../prisma/Database";
+import { Admins } from "./Admins";
 
 type Callback<T> = (error: string | null, result: T) => void;
 
@@ -56,18 +57,16 @@ export class Utils {
       ...(keyb ? { reply_markup: markup.inlineKeyboard(keyb) } : {}),
     };
 
-    Database.orm.public.Administrators.select("UserId")
-      .all()
-      .then((admins) =>
-        Promise.allSettled(
-          admins.map((admin) =>
-            bot.api.sendMessage(admin.UserId, message, options).catch(() => {}),
-          ),
+    Admins.getAdminList((result) => {
+      if (!result) return;
+      Promise.allSettled(
+        result.map((admin) =>
+          bot.api.sendMessage(admin, message, options).catch(() => {}),
         ),
-      )
-      .then((results) => {
+      ).then((results) => {
         callback?.(results.some((r) => r.status === "fulfilled"));
       });
+    });
   }
 
   static normalizeChannelId(id: string | number): number {

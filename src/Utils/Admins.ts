@@ -42,6 +42,34 @@ export class Admins {
     }
   }
 
+  static getAdminList(callback: (result: string[] | null) => void) {
+    const adm = Cache.get(`adminList`);
+    if (!adm) {
+      Database.orm.public.Administrators.select("UserId")
+        .all()
+        .then((rows) => {
+          if (!rows) return callback(null);
+          const r: string[] = [];
+          rows.forEach((row) => {
+            const adm = Cache.get(`adminList`);
+            if (!adm) {
+              Cache.set(`adminList`, `${row.UserId}`);
+            } else {
+              Cache.set(`adminList`, `${adm},${row.UserId}`);
+            }
+            r.push(row.UserId);
+          });
+
+          return callback(r);
+        });
+    } else {
+      const spl = String(adm).includes(",")
+        ? String(adm).split(",")
+        : [String(adm)];
+      return callback(spl);
+    }
+  }
+
   static invalidate(userId: string) {
     Cache.del(`admin_${userId}`);
   }
