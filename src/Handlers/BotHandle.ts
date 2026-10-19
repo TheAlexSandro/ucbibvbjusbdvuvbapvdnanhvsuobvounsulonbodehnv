@@ -2128,14 +2128,6 @@ export class BotHandle {
         if (type === "day") {
           if (String(Cache.get(`mode`)) !== "afkmode")
             return this.ctx.deleteMessage();
-          if (String(Cache.get(`mode`)) === "afkmode") {
-            this.ctx.deleteMessage();
-            this.ctx.answerCallbackQuery({
-              text: "⚠️ Suck mode sudah aktif.",
-              show_alert: true,
-            });
-            return;
-          }
           var pesan = `❇️ <b>Masukkan Angka</b>`;
           pesan += `\nBerapa lama Anda ingin ngehama?\nSaat ini: ${Cache.get(`afkmodeDur`)} hari.`;
           let keyb = [];
