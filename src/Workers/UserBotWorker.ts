@@ -155,14 +155,13 @@ const handleRegistrationJoin = (
 
 const handleAttentionJoin = (idx: number, msg: any) => {
   const slot = slots[idx];
-  if (!slot || !msg.isPrivate || state.joinMode !== "next") return;
+  if (!slot || state.joinMode !== "next") return;
+  if (msg.peerId?.className !== "PeerUser") return;
   if (disabledSet.has(slot.userId)) return;
-  const text: string = msg.text ?? "";
+
+  const text: string = msg.message ?? msg.text ?? "";
   if (!text.includes("Attention!") && !text.includes("Perhatian!")) return;
   if (msg.replyMarkup?.className !== "ReplyInlineMarkup") return;
-
-  const key = `${idx}:${msg.id}`;
-  if (handledAttention.has(key)) return;
 
   const btn = msg.replyMarkup.rows
     .flatMap((r: any) => r.buttons)
@@ -173,7 +172,6 @@ const handleAttentionJoin = (idx: number, msg: any) => {
         b.type?.data,
     );
   if (!btn) return;
-  remember(handledAttention, key);
 
   slot.client
     .invoke(
@@ -189,6 +187,12 @@ const handleAttentionJoin = (idx: number, msg: any) => {
 const botNumericId = /^\d+$/.test(String(mafiaBotId))
   ? String(mafiaBotId)
   : null;
+
+const senderIdOf = (m: any): string | null => {
+  if (m.fromId?.userId != null) return String(m.fromId.userId);
+  if (m.peerId?.className === "PeerUser") return String(m.peerId.userId);
+  return null;
+};
 
 const peekRaw = (update: any, idx: number, noDispatch?: boolean) => {
   if (noDispatch) return;
@@ -209,13 +213,14 @@ const peekRaw = (update: any, idx: number, noDispatch?: boolean) => {
     const m = u.message;
     if (!m || m.className !== "Message" || m.out) continue;
     if (Date.now() / 1000 - (m.editDate ?? m.date) > 60) continue;
-    if (botNumericId && String(m.fromId?.userId) !== botNumericId) continue;
+    if (botNumericId && senderIdOf(m) !== botNumericId) continue;
+
+    if (state.joinMode === "next") handleAttentionJoin(idx, m);
 
     const url = findJoinUrl(m);
     if (!url || !m.peerId) continue;
 
     handleRegistrationJoin(String(getPeerId(m.peerId)), url, t0, "raw");
-    handleAttentionJoin(idx, m);
     return;
   }
 };
