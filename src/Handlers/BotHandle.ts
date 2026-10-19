@@ -429,8 +429,8 @@ export class BotHandle {
 
           var pesan = `🎎 <b>Peran</b>`;
           pesan += `\nBerikut adalah daftar peran semua userbot yang berada dalam permainan:`;
-          pesan += `\nBergabung: ${result.length}`
-          pesan += `\n\n${result}`;
+          pesan += `\n${result}`;
+          pesan += `\n\nBergabung: ${String(getRole).split(",").length}`;
 
           this.bot.api.editMessageText(
             message_result.chat.id,
