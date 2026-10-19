@@ -72,5 +72,6 @@ export class Admins {
 
   static invalidate(userId: string) {
     Cache.del(`admin_${userId}`);
+    Cache.del(`adminList`);
   }
 }
