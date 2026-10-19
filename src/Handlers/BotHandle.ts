@@ -216,7 +216,7 @@ export class BotHandle {
         var pesan = `👋 Halo ${Utils.getName(this.ctx)}, selamat datang di controller! Kelola userbot Anda di sini.`;
         pesan += `\n\n🕹 <b>Perintah:</b>`;
         pesan += `\n• /gc - tambahkan grup atau kelola grup yang sudah ada.`;
-        pesan += `\n• /getrole - dapatkan informasi tentang peran userbot.`;
+        pesan += `\n• /role - dapatkan informasi tentang peran userbot.`;
         pesan += `\n• /next - gunakan perintah ini agar userbot masuk dalam permainan.`;
         pesan += `\n• /smode - (suck mode) gunakan perintah ini untuk membuat userbot bertahan hingga hari yang ditentukan, <b>salah satu userbot harus memiliki peran dokter</b>.`;
         pesan += `\n• /ubot - kelola userbot mana yang akan digunakan.`;
@@ -370,7 +370,7 @@ export class BotHandle {
         return;
       }
 
-      var pola = /^\/getrole$/i;
+      var pola = /^\/role$/i;
       if (pola.exec(this.ctx.message?.text!)) {
         if (!admin.CanGetRole)
           return this.ctx.reply(
@@ -429,7 +429,8 @@ export class BotHandle {
 
           var pesan = `🎎 <b>Peran</b>`;
           pesan += `\nBerikut adalah daftar peran semua userbot yang berada dalam permainan:`;
-          pesan += `\n${result}`;
+          pesan += `\nBergabung: ${result.length}`
+          pesan += `\n\n${result}`;
 
           this.bot.api.editMessageText(
             message_result.chat.id,
