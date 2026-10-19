@@ -5,6 +5,7 @@ import { NewMessage, EditedMessage } from "teleproto/events/index.js";
 import { generateRandomBigInt } from "teleproto/Helpers.js";
 import { LogLevel } from "teleproto/extensions/Logger.js";
 import { getPeerId } from "teleproto/Utils.js";
+import { monitorEventLoopDelay } from "perf_hooks";
 import type {
   ButtonPayload,
   CommandArgs,
@@ -15,6 +16,9 @@ import type {
   SharedState,
   WorkerToMain,
 } from "../Types/types";
+
+const eld = monitorEventLoopDelay({ resolution: 5 });
+eld.enable();
 
 const { sessionStrings, apiId, apiHash, mafiaBotId, trueMafia } =
   workerData as {
@@ -122,6 +126,7 @@ const handleRegistrationJoin = (
   remember(handledRegistrations, key);
   send({ type: "joined" });
   const results: string[] = [];
+  eld.reset();
   const jobs = slots.map((slot) => {
     if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) return null;
 
@@ -148,7 +153,7 @@ const handleRegistrationJoin = (
   const dispatchMs = performance.now() - t0;
   Promise.allSettled(jobs).then(() =>
     log(
-      `[lat TS] join via=${via} dispatch=${dispatchMs.toFixed(1)}ms slowest=${(performance.now() - t0).toFixed(0)}ms: ${results.join(" | ")}`,
+      `[lat TS] join via=${via} dispatch=${dispatchMs.toFixed(1)}ms slowest=${(performance.now() - t0).toFixed(0)}ms loop(max=${(eld.max / 1e6).toFixed(0)}ms p99=${(eld.percentile(99) / 1e6).toFixed(0)}ms): ${results.join(" | ")}`,
     ),
   );
 };
