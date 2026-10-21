@@ -124,15 +124,20 @@ const handleRegistrationJoin = (
   for (const slot of slots) {
     if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) continue;
     slot.client
-      .invoke(
-        new Api.messages.StartBot({
-          bot: slot.mafiaEntity,
-          peer: slot.mafiaEntity,
-          randomId: generateRandomBigInt(),
-          startParam,
-        }),
-      )
+      .sendMessage(slot.mafiaEntity, {
+        message: `/start ${startParam}`,
+      })
       .catch(() => {});
+    // slot.client
+    //   .invoke(
+    //     new Api.messages.StartBot({
+    //       bot: slot.mafiaEntity,
+    //       peer: slot.mafiaEntity,
+    //       randomId: generateRandomBigInt(),
+    //       startParam,
+    //     }),
+    //   )
+    //   .catch(() => {});
   }
 };
 
