@@ -322,6 +322,7 @@ export class UserBots {
       "joined",
       "target",
       "currentChat",
+      "suicide",
     ].forEach((k) => Cache.del(k));
 
     String(process.env["USERBOT"])
