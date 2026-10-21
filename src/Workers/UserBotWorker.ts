@@ -121,39 +121,19 @@ const handleRegistrationJoin = (
 
   remember(handledRegistrations, key);
   send({ type: "joined" });
-  const results: string[] = [];
-  const jobs: Promise<void>[] = [];
   for (const slot of slots) {
     if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) continue;
-
-    const tSend = performance.now();
-    jobs.push(
-      slot.client
-        .invoke(
-          new Api.messages.StartBot({
-            bot: slot.mafiaEntity,
-            peer: slot.mafiaEntity,
-            randomId: generateRandomBigInt(),
-            startParam,
-          }),
-        )
-        .then(() => {
-          results.push(
-            `${slot.userId}=${(performance.now() - tSend).toFixed(0)}ms`,
-          );
-        })
-        .catch(() => {
-          results.push(`${slot.userId}=GAGAL`);
+    slot.client
+      .invoke(
+        new Api.messages.StartBot({
+          bot: slot.mafiaEntity,
+          peer: slot.mafiaEntity,
+          randomId: generateRandomBigInt(),
+          startParam,
         }),
-    );
+      )
+      .catch(() => {});
   }
-
-  const dispatchMs = performance.now() - t0;
-  Promise.allSettled(jobs).then(() =>
-    log(
-      `[lat TS] join via=${via} dispatch=${dispatchMs.toFixed(1)}ms slowest=${(performance.now() - t0).toFixed(0)}ms: ${results.join(" | ")}`,
-    ),
-  );
 };
 
 const handleAttentionJoin = (idx: number, msg: any) => {
