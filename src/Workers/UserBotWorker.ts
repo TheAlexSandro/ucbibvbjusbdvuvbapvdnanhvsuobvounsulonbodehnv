@@ -124,7 +124,7 @@ const handleRegistrationJoin = (
   const results: string[] = [];
   const jobs: Promise<void>[] = [];
   for (const slot of slots) {
-    if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) return null;
+    if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) continue;
 
     const tSend = performance.now();
     jobs.push(
