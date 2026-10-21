@@ -10,6 +10,7 @@ import { Api, TelegramClient } from "teleproto";
 import { StringSession } from "teleproto/sessions/index.js";
 import { Lifecycle } from "../Utils/LifeCycle";
 import { Admins } from "../Utils/Admins";
+import type { InlineKeyboardButton } from "grammy/types";
 
 const PERMS = [
   ["CanAddGroup", "Can Add Group"],
@@ -139,12 +140,15 @@ export class BotHandle {
     target: string,
     perms: Partial<Record<PermKey, boolean>>,
   ) {
-    const keyb = PERMS.map(([key, label]) => [
-      btn.text(
-        `${admin[key] ? "" : "🔒 "}${label} ${perms[key] ? "✅" : "❌"}`,
-        `admin_tgl:${key}_${target}`,
-      ),
-    ]);
+    const keyb: ReturnType<typeof btn.text>[][] = [];
+    for (const [key, label] of PERMS) {
+      keyb.push([
+        btn.text(
+          `${admin[key] ? "" : "🔒 "}${label} ${perms[key] ? "✅" : "❌"}`,
+          `admin_tgl:${key}_${target}`,
+        ),
+      ]);
+    }
     keyb.push([
       btn.text(`❌ Batal`, `admin_return_none`),
       btn.text(`Angkat ➡️`, `admin_promote_${target}`),
@@ -189,12 +193,16 @@ export class BotHandle {
   }
 
   private buildRoleButtons(callbackPrefix: string): any[] {
-    return BotHandle.ROLES.map((role) => [
-      btn.text(
-        `${role.emoji} ${role.label} - ${Cache.get(role.cacheKey) ? "otomatis" : "manual"}`,
-        `${callbackPrefix}_${role.action}`,
-      ),
-    ]);
+    const keyb: any[] = [];
+    for (const role of BotHandle.ROLES) {
+      keyb.push([
+        btn.text(
+          `${role.emoji} ${role.label} - ${Cache.get(role.cacheKey) ? "otomatis" : "manual"}`,
+          `${callbackPrefix}_${role.action}`,
+        ),
+      ]);
+    }
+    return keyb;
   }
 
   public message() {
@@ -403,29 +411,24 @@ export class BotHandle {
           );
 
         this.ctx.reply(`⏳ Memproses...`).then((message_result) => {
-          const parsedRoles = Object.fromEntries(
-            String(getRole)
-              .split(",")
-              .map((pair: string) => {
-                const [id, role] = pair.split(":");
-                return [id.trim(), role.trim()];
-              }),
-          );
-          const parsedNames = Object.fromEntries(
-            String(Cache.get(`roleNames`))
-              .split(",")
-              .map((pair: string) => {
-                const [id, name] = pair.split(":");
-                return [id?.trim(), name?.trim()];
-              }),
-          );
+          const parsedRoles: Record<string, string> = {};
+          for (const pair of String(getRole).split(",")) {
+            const [id, role] = pair.split(":");
+            parsedRoles[id.trim()] = role.trim();
+          }
 
-          const result = Object.entries(parsedRoles)
-            .map(([id, role]) => {
-              const name = parsedNames[id] ?? id;
-              return `• ${name} - ${Cache.get(`roleEmot${role}`)}`;
-            })
-            .join("\n");
+          const parsedNames: Record<string, string | undefined> = {};
+          for (const pair of String(Cache.get(`roleNames`)).split(",")) {
+            const [id, name] = pair.split(":");
+            parsedNames[id?.trim()] = name?.trim();
+          }
+
+          const lines: string[] = [];
+          for (const [id, role] of Object.entries(parsedRoles)) {
+            const name = parsedNames[id] ?? id;
+            lines.push(`• ${name} - ${Cache.get(`roleEmot${role}`)}`);
+          }
+          const result = lines.join("\n");
 
           var pesan = `🎎 <b>Peran</b>`;
           pesan += `\nBerikut adalah daftar peran semua userbot yang berada dalam permainan:`;
@@ -456,20 +459,22 @@ export class BotHandle {
           Database.orm.public.DisabledUserBot.select("UserId")
             .all()
             .then((db_result) => {
-              const disabledSet = new Set(
-                db_result.map((row) => row.UserId.toString()),
-              );
+              const disabledSet = new Set<string>();
+              for (const row of db_result) {
+                disabledSet.add(row.UserId.toString());
+              }
               var pesan = `🤖 <b>Daftar Bot</b>`;
               pesan += `\nKelola userbot mana yang ingin Anda gunakan atau matikan.`;
 
-              const keyb = this.manager
-                .getUsers()
-                .map((u) => [
+              const keyb: ReturnType<typeof btn.text>[][] = [];
+              for (const u of this.manager.getUsers()) {
+                keyb.push([
                   btn.text(
                     `${u.fullName} ${disabledSet.has(u.id) ? "❌" : "✅"}`,
                     `userbot_${u.id}`,
                   ),
                 ]);
+              }
 
               this.ctx.api.editMessageText(
                 result.chat.id,
@@ -1364,9 +1369,10 @@ export class BotHandle {
               show_alert: true,
             });
 
-          const granted = Object.fromEntries(
-            PERMS.map(([k]) => [k, Boolean(draft.perms[k] && admin[k])]),
-          );
+          const granted: Record<string, boolean> = {};
+          for (const [k] of PERMS) {
+            granted[k] = Boolean(draft.perms[k] && admin[k]);
+          }
 
           Utils.writeLog(
             `[${new Date()}] ${Utils.getNames(this.ctx)} - mengangkat admin baru: ${userId}.\n`,
@@ -1426,12 +1432,15 @@ export class BotHandle {
                   );
                   const pesan = `👮‍♂️ <b>${nama}</b>\nIzin mana yang akan Anda ubah untuk pengguna ini?\nPromoter: ${promoter.last_name ? `${promoter.first_name} ${promoter.last_name}` : promoter.first_name}`;
 
-                  const keyb = PERMS.map(([key, label]) => [
-                    btn.text(
-                      `${admin[key] ? "" : "🔒 "}${label} ${row[key] ? "✅" : "❌"}`,
-                      `admin_${key}_${userId}`,
-                    ),
-                  ]);
+                  const keyb: ReturnType<typeof btn.text>[][] = [];
+                  for (const [key, label] of PERMS) {
+                    keyb.push([
+                      btn.text(
+                        `${admin[key] ? "" : "🔒 "}${label} ${row[key] ? "✅" : "❌"}`,
+                        `admin_${key}_${userId}`,
+                      ),
+                    ]);
+                  }
                   keyb.push([btn.text(`⬅️ Kembali`, `admin_return_none`)]);
 
                   return this.ctx.editMessageText(pesan, {
@@ -1852,9 +1861,9 @@ export class BotHandle {
             Database.orm.public.DisabledUserBot.select("UserId")
               .all()
               .then((db_result) => {
-                db_result.map((id) => {
-                  Cache.set(`userbot_${id}_disabled`, true);
-                });
+                for (const row of db_result) {
+                  Cache.set(`userbot_${row.UserId}_disabled`, true);
+                }
                 Database.orm.public.Group.where({ GroupId: target })
                   .select("GroupName")
                   .first()
@@ -1968,21 +1977,25 @@ export class BotHandle {
           return;
         }
 
-        const newKeyboard = currentKeyboard.map((row) => {
-          return row.map((button) => {
+        const newKeyboard: InlineKeyboardButton[][] = [];
+        for (const row of currentKeyboard) {
+          const newRow: InlineKeyboardButton[] = [];
+          for (const button of row) {
             if (
               "callback_data" in button &&
               button.callback_data === `userbot_${userId}`
             ) {
               const nameOnly = button.text.replace(/\s*[✅❌]\s*$/, "").trim();
-              return {
+              newRow.push({
                 ...button,
                 text: `${nameOnly} ${!newDisabled ? "✅" : "❌"}`,
-              };
+              });
+            } else {
+              newRow.push(button);
             }
-            return button;
-          });
-        });
+          }
+          newKeyboard.push(newRow);
+        }
 
         this.ctx
           .editMessageReplyMarkup({

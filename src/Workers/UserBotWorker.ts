@@ -122,28 +122,31 @@ const handleRegistrationJoin = (
   remember(handledRegistrations, key);
   send({ type: "joined" });
   const results: string[] = [];
-  const jobs = slots.map((slot) => {
+  const jobs: Promise<void>[] = [];
+  for (const slot of slots) {
     if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) return null;
 
     const tSend = performance.now();
-    return slot.client
-      .invoke(
-        new Api.messages.StartBot({
-          bot: slot.mafiaEntity,
-          peer: slot.mafiaEntity,
-          randomId: generateRandomBigInt(),
-          startParam,
+    jobs.push(
+      slot.client
+        .invoke(
+          new Api.messages.StartBot({
+            bot: slot.mafiaEntity,
+            peer: slot.mafiaEntity,
+            randomId: generateRandomBigInt(),
+            startParam,
+          }),
+        )
+        .then(() => {
+          results.push(
+            `${slot.userId}=${(performance.now() - tSend).toFixed(0)}ms`,
+          );
+        })
+        .catch(() => {
+          results.push(`${slot.userId}=GAGAL`);
         }),
-      )
-      .then(() => {
-        results.push(
-          `${slot.userId}=${(performance.now() - tSend).toFixed(0)}ms`,
-        );
-      })
-      .catch(() => {
-        results.push(`${slot.userId}=GAGAL`);
-      });
-  });
+    );
+  }
 
   const dispatchMs = performance.now() - t0;
   Promise.allSettled(jobs).then(() =>

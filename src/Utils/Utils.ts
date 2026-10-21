@@ -59,11 +59,12 @@ export class Utils {
 
     Admins.getAdminList((result) => {
       if (!result) return;
-      Promise.allSettled(
-        result.map((admin) =>
-          bot.api.sendMessage(admin, message, options).catch(() => {}),
-        ),
-      ).then((results) => {
+      const jobs: Promise<unknown>[] = [];
+      for (const admin of result) {
+        jobs.push(bot.api.sendMessage(admin, message, options).catch(() => {}));
+      }
+
+      Promise.allSettled(jobs).then((results) => {
         callback?.(results.some((r) => r.status === "fulfilled"));
       });
     });
