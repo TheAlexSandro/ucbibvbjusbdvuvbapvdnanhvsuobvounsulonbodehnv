@@ -5,6 +5,7 @@ import { NewMessage, EditedMessage } from "teleproto/events/index.js";
 import { LogLevel } from "teleproto/extensions/Logger.js";
 import { getPeerId } from "teleproto/Utils.js";
 import bigInt from "big-integer";
+import net from "node:net";
 import type {
   ButtonPayload,
   CommandArgs,
@@ -147,21 +148,6 @@ const handleRegistrationJoin = (chatId: string, url: string, t0: number) => {
         );
       })
       .catch(() => {});
-
-    slot.client
-      .invoke(
-        new Api.messages.SetTyping({
-          peer: slot.inputPeer,
-          action: new Api.SendMessageTypingAction(),
-        }),
-      )
-      .then(() => {
-        const done = performance.now();
-        log(
-          `[lat] typing ${slot.userId} dispatch=${(tSend - t0).toFixed(1)}ms rtt=${(done - tSend).toFixed(1)}ms`,
-        );
-      })
-      .catch(() => {});
     // slot.client
     //   .invoke(
     //     new Api.messages.StartBot({
@@ -279,20 +265,11 @@ const initClient = async (ss: string, idx: number) => {
   await client.connect();
 
   if (shuttingDown) return;
-  const findSocket = (root: any, depth = 4, seen = new Set<any>()): any => {
-    if (!root || typeof root !== "object" || seen.has(root) || depth < 0)
-      return null;
-    seen.add(root);
-    if (typeof root.setNoDelay === "function") return root;
-    for (const k of Object.keys(root)) {
-      const found = findSocket(root[k], depth - 1, seen);
-      if (found) return found;
-    }
-    return null;
+  const origConnect = net.Socket.prototype.connect;
+  net.Socket.prototype.connect = function (this: net.Socket, ...args: any[]) {
+    this.setNoDelay(true);
+    return (origConnect as any).apply(this, args);
   };
-  const sock = findSocket((client as any)._sender);
-  sock?.setNoDelay(true);
-  log(`[init] noDelay=${Boolean(sock)}`);
   const me: any = await client.getMe();
   await client.invoke(new Api.updates.GetState()).catch(() => {});
   const mafiaEntity = await client.getEntity(trueMafia).catch(() => null);
