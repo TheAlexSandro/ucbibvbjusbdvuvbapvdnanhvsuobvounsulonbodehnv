@@ -48,6 +48,16 @@ let disabledSet = new Set<string>();
 const send = (m: WorkerToMain) => port.postMessage(m);
 const log = (text: string) => send({ type: "log", text });
 
+let lagLast = performance.now();
+setInterval(() => {
+  const now = performance.now();
+  const lag = now - lagLast - 10;
+  lagLast = now;
+  if (lag > 3 && ["direct", "next"].includes(state.joinMode)) {
+    log(`[lag] ${lag.toFixed(1)}ms at=${now.toFixed(1)}`);
+  }
+}, 10);
+
 const serializeButtons = (msg: any): ButtonPayload[] | null => {
   if (msg.replyMarkup?.className !== "ReplyInlineMarkup") return null;
   return msg.replyMarkup.rows.flatMap((row: any) =>
@@ -112,6 +122,14 @@ const randomId = () =>
       BigInt(Math.floor(Math.random() * 2 ** 32)),
   );
 
+setInterval(() => {
+  if (!["direct", "next"].includes(state.joinMode)) return;
+  for (const s of slots) {
+    if (!s || disabledSet.has(s.userId)) continue;
+    s.client.invoke(new Api.Ping({ pingId: randomId() })).catch(() => {});
+  }
+}, 3000);
+
 const handleRegistrationJoin = (chatId: string, url: string, t0: number) => {
   if (chatId !== state.groupTarget) return;
 
@@ -123,48 +141,27 @@ const handleRegistrationJoin = (chatId: string, url: string, t0: number) => {
 
   remember(handledRegistrations, key);
   send({ type: "joined" });
+
+  const message = `/start ${startParam}`;
   for (const slot of slots) {
-    if (
-      !slot ||
-      disabledSet.has(slot.userId) ||
-      !slot.mafiaEntity ||
-      !slot.inputPeer
-    )
-      continue;
+    if (!slot || disabledSet.has(slot.userId) || !slot.inputPeer) continue;
 
     const tSend = performance.now();
-    let a = performance.now();
-    setInterval(() => {
-      const now = performance.now();
-      const lag = now - a - 10;
-      if (lag > 3) log(`[lag] ${lag.toFixed(1)}ms`);
-      a = now;
-    }, 10);
     slot.client
       .invoke(
         new Api.messages.SendMessage({
           peer: slot.inputPeer,
-          message: `/start ${startParam}`,
+          message,
           randomId: randomId(),
         }),
       )
       .then(() => {
         const done = performance.now();
         log(
-          `[lat] join ${slot.userId} dispatch=${(tSend - t0).toFixed(1)}ms rtt=${(done - tSend).toFixed(1)}ms`,
+          `[lat] join ${slot.userId} dispatch=${(tSend - t0).toFixed(1)}ms rtt=${(done - tSend).toFixed(1)}ms at=${done.toFixed(1)}`,
         );
       })
       .catch(() => {});
-    // slot.client
-    //   .invoke(
-    //     new Api.messages.StartBot({
-    //       bot: slot.mafiaEntity,
-    //       peer: slot.mafiaEntity,
-    //       randomId: generateRandomBigInt(),
-    //       startParam,
-    //     }),
-    //   )
-    //   .catch(() => {});
   }
 };
 
@@ -254,6 +251,11 @@ const clients = new Map<number, TelegramClient>();
 let shuttingDown = false;
 let initDone: Promise<unknown> = Promise.resolve();
 const initClient = async (ss: string, idx: number) => {
+  const origSocketConnect = net.Socket.prototype.connect;
+  net.Socket.prototype.connect = function (this: net.Socket, ...args: any[]) {
+    this.setNoDelay(true);
+    return (origSocketConnect as any).apply(this, args);
+  };
   const client = new TelegramClient(new StringSession(ss), apiId, apiHash, {
     connectionRetries: 5,
     autoReconnect: true,
@@ -272,11 +274,6 @@ const initClient = async (ss: string, idx: number) => {
   await client.connect();
 
   if (shuttingDown) return;
-  const origConnect = net.Socket.prototype.connect;
-  net.Socket.prototype.connect = function (this: net.Socket, ...args: any[]) {
-    this.setNoDelay(true);
-    return (origConnect as any).apply(this, args);
-  };
   const me: any = await client.getMe();
   await client.invoke(new Api.updates.GetState()).catch(() => {});
   const mafiaEntity = await client.getEntity(trueMafia).catch(() => null);
