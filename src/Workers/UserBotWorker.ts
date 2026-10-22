@@ -251,10 +251,25 @@ const clients = new Map<number, TelegramClient>();
 let shuttingDown = false;
 let initDone: Promise<unknown> = Promise.resolve();
 const initClient = async (ss: string, idx: number) => {
-  const origSocketConnect = net.Socket.prototype.connect;
-  net.Socket.prototype.connect = function (this: net.Socket, ...args: any[]) {
-    this.setNoDelay(true);
-    return (origSocketConnect as any).apply(this, args);
+  const origWrite = net.Socket.prototype.write;
+  net.Socket.prototype.write = function (this: any, ...args: any[]) {
+    this._tWrite = performance.now();
+    return (origWrite as any).apply(this, args);
+  };
+
+  const origEmit = net.Socket.prototype.emit;
+  net.Socket.prototype.emit = function (this: any, ev: string, ...args: any[]) {
+    if (
+      ev === "data" &&
+      this._tWrite &&
+      ["direct", "next"].includes(state.joinMode)
+    ) {
+      log(
+        `[sock] write->data ${(performance.now() - this._tWrite).toFixed(1)}ms`,
+      );
+      this._tWrite = 0;
+    }
+    return (origEmit as any).apply(this, [ev, ...args]);
   };
   const client = new TelegramClient(new StringSession(ss), apiId, apiHash, {
     connectionRetries: 5,
