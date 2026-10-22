@@ -128,7 +128,6 @@ const handleRegistrationJoin = (chatId: string, url: string, t0: number) => {
   for (const slot of slots) {
     if (!slot || disabledSet.has(slot.userId) || !slot.inputPeer) continue;
 
-    const tSend = performance.now();
     slot.client
       .invoke(
         new Api.messages.SendMessage({
