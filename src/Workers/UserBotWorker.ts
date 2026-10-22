@@ -220,7 +220,7 @@ const peekRaw = (update: any, idx: number, noDispatch?: boolean) => {
     const url = findJoinUrl(m);
     if (!url || !m.peerId) continue;
 
-    handleRegistrationJoin(String(getPeerId(m.peerId)), url);
+    handleRegistrationJoin(String(getPeerId(m.peerId)), url, t0);
     return;
   }
 };
