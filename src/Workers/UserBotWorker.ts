@@ -108,8 +108,6 @@ const findJoinUrl = (msg: any): string | null => {
 const handleRegistrationJoin = (
   chatId: string,
   url: string,
-  t0: number,
-  via: string,
 ) => {
   if (chatId !== state.groupTarget) return;
 
@@ -123,10 +121,15 @@ const handleRegistrationJoin = (
   send({ type: "joined" });
   for (const slot of slots) {
     if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) continue;
+
     slot.client
-      .sendMessage(slot.mafiaEntity, {
-        message: `/start ${startParam}`,
-      })
+      .invoke(
+        new Api.messages.SendMessage({
+          peer: slot.mafiaEntity,
+          message: `/start ${startParam}`,
+          randomId: generateRandomBigInt(),
+        }),
+      )
       .catch(() => {});
     // slot.client
     //   .invoke(
@@ -208,7 +211,7 @@ const peekRaw = (update: any, idx: number, noDispatch?: boolean) => {
     const url = findJoinUrl(m);
     if (!url || !m.peerId) continue;
 
-    handleRegistrationJoin(String(getPeerId(m.peerId)), url, t0, "raw");
+    handleRegistrationJoin(String(getPeerId(m.peerId)), url);
     return;
   }
 };
