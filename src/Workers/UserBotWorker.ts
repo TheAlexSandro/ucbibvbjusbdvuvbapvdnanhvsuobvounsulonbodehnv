@@ -29,6 +29,7 @@ interface Slot {
   client: TelegramClient;
   userId: string;
   mafiaEntity: any | null;
+  inputPeer: any | null;
 }
 
 const port = parentPort!;
@@ -122,13 +123,20 @@ const handleRegistrationJoin = (chatId: string, url: string, t0: number) => {
   remember(handledRegistrations, key);
   send({ type: "joined" });
   for (const slot of slots) {
-    if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) continue;
+    if (
+      !slot ||
+      disabledSet.has(slot.userId) ||
+      !slot.mafiaEntity ||
+      !slot.inputPeer
+    )
+      continue;
 
     const tSend = performance.now();
     slot.client
       .invoke(
         new Api.messages.SendMessage({
-          peer: slot.mafiaEntity,
+          peer: slot.inputPeer,
+          entities: slot.mafiaEntity,
           message: `/start ${startParam}`,
           randomId: randomId(),
         }),
@@ -136,7 +144,22 @@ const handleRegistrationJoin = (chatId: string, url: string, t0: number) => {
       .then(() => {
         const done = performance.now();
         log(
-          `[lat] ${slot.userId} dispatch=${(tSend - t0).toFixed(1)}ms rtt=${(done - tSend).toFixed(1)}ms`,
+          `[lat] join ${slot.userId} dispatch=${(tSend - t0).toFixed(1)}ms rtt=${(done - tSend).toFixed(1)}ms`,
+        );
+      })
+      .catch(() => {});
+
+    slot.client
+      .invoke(
+        new Api.messages.SetTyping({
+          peer: slot.inputPeer,
+          action: new Api.SendMessageTypingAction(),
+        }),
+      )
+      .then(() => {
+        const done = performance.now();
+        log(
+          `[lat] typing ${slot.userId} dispatch=${(tSend - t0).toFixed(1)}ms rtt=${(done - tSend).toFixed(1)}ms`,
         );
       })
       .catch(() => {});
@@ -274,8 +297,10 @@ const initClient = async (ss: string, idx: number) => {
   const me: any = await client.getMe();
   await client.invoke(new Api.updates.GetState()).catch(() => {});
   const mafiaEntity = await client.getEntity(trueMafia).catch(() => null);
+  const inputPeer = await client.getInputEntity(trueMafia).catch(() => null);
+
   client.setLogLevel(LogLevel.NONE);
-  slots[idx] = { client, userId: String(me.id), mafiaEntity };
+  slots[idx] = { client, userId: String(me.id), mafiaEntity, inputPeer };
   const ping = await measurePing(client).catch(() => -1);
   log(
     `[init] ${me.id} (${me.firstName}) dc=${(client.session as any).dcId} ping=${ping.toFixed(0)}ms workerClient=${idx}`,
