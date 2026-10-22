@@ -132,12 +132,13 @@ const handleRegistrationJoin = (chatId: string, url: string, t0: number) => {
     )
       continue;
 
-    let tSend = performance.now();
+    const tSend = performance.now();
+    let a = performance.now();
     setInterval(() => {
       const now = performance.now();
-      const lag = now - tSend - 10;
+      const lag = now - a - 10;
       if (lag > 3) log(`[lag] ${lag.toFixed(1)}ms`);
-      tSend = now;
+      a = now;
     }, 10);
     slot.client
       .invoke(
