@@ -48,16 +48,6 @@ let disabledSet = new Set<string>();
 const send = (m: WorkerToMain) => port.postMessage(m);
 const log = (text: string) => send({ type: "log", text });
 
-let lagLast = performance.now();
-setInterval(() => {
-  const now = performance.now();
-  const lag = now - lagLast - 10;
-  lagLast = now;
-  if (lag > 3 && ["direct", "next"].includes(state.joinMode)) {
-    log(`[lag] ${lag.toFixed(1)}ms at=${now.toFixed(1)}`);
-  }
-}, 10);
-
 const serializeButtons = (msg: any): ButtonPayload[] | null => {
   if (msg.replyMarkup?.className !== "ReplyInlineMarkup") return null;
   return msg.replyMarkup.rows.flatMap((row: any) =>
@@ -122,14 +112,6 @@ const randomId = () =>
       BigInt(Math.floor(Math.random() * 2 ** 32)),
   );
 
-setInterval(() => {
-  if (!["direct", "next"].includes(state.joinMode)) return;
-  for (const s of slots) {
-    if (!s || disabledSet.has(s.userId)) continue;
-    s.client.invoke(new Api.Ping({ pingId: randomId() })).catch(() => {});
-  }
-}, 3000);
-
 const handleRegistrationJoin = (chatId: string, url: string, t0: number) => {
   if (chatId !== state.groupTarget) return;
 
@@ -155,12 +137,6 @@ const handleRegistrationJoin = (chatId: string, url: string, t0: number) => {
           randomId: randomId(),
         }),
       )
-      .then(() => {
-        const done = performance.now();
-        log(
-          `[lat] join ${slot.userId} dispatch=${(tSend - t0).toFixed(1)}ms rtt=${(done - tSend).toFixed(1)}ms at=${done.toFixed(1)}`,
-        );
-      })
       .catch(() => {});
   }
 };
@@ -251,25 +227,11 @@ const clients = new Map<number, TelegramClient>();
 let shuttingDown = false;
 let initDone: Promise<unknown> = Promise.resolve();
 const initClient = async (ss: string, idx: number) => {
-  const origWrite = net.Socket.prototype.write;
-  net.Socket.prototype.write = function (this: any, ...args: any[]) {
-    this._tWrite = performance.now();
-    return (origWrite as any).apply(this, args);
-  };
-
-  const origEmit = net.Socket.prototype.emit;
-  net.Socket.prototype.emit = function (this: any, ev: string, ...args: any[]) {
-    if (
-      ev === "data" &&
-      this._tWrite &&
-      ["direct", "next"].includes(state.joinMode)
-    ) {
-      log(
-        `[sock] write->data ${(performance.now() - this._tWrite).toFixed(1)}ms`,
-      );
-      this._tWrite = 0;
-    }
-    return (origEmit as any).apply(this, [ev, ...args]);
+  const origSocketConnect = net.Socket.prototype.connect;
+  net.Socket.prototype.connect = function (this: net.Socket, ...args: any[]) {
+    this.setNoDelay(true);
+    log(`[net] connect patched, args=${JSON.stringify(args[0])?.slice(0, 80)}`);
+    return (origSocketConnect as any).apply(this, args);
   };
   const client = new TelegramClient(new StringSession(ss), apiId, apiHash, {
     connectionRetries: 5,
