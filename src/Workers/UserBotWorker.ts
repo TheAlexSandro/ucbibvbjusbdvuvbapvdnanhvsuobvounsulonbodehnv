@@ -2,9 +2,9 @@ import { parentPort, workerData } from "worker_threads";
 import { Api, TelegramClient } from "teleproto";
 import { StringSession } from "teleproto/sessions/index.js";
 import { NewMessage, EditedMessage } from "teleproto/events/index.js";
-import { generateRandomBigInt } from "teleproto/Helpers.js";
 import { LogLevel } from "teleproto/extensions/Logger.js";
 import { getPeerId } from "teleproto/Utils.js";
+import bigInt from "big-integer";
 import type {
   ButtonPayload,
   CommandArgs,
@@ -105,10 +105,13 @@ const findJoinUrl = (msg: any): string | null => {
   return null;
 };
 
-const handleRegistrationJoin = (
-  chatId: string,
-  url: string,
-) => {
+const randomId = () =>
+  bigInt(
+    (BigInt(Math.floor(Math.random() * 2 ** 32)) << BigInt(32)) |
+      BigInt(Math.floor(Math.random() * 2 ** 32)),
+  );
+
+const handleRegistrationJoin = (chatId: string, url: string) => {
   if (chatId !== state.groupTarget) return;
 
   const startParam = new URL(url).searchParams.get("start");
@@ -127,7 +130,7 @@ const handleRegistrationJoin = (
         new Api.messages.SendMessage({
           peer: slot.mafiaEntity,
           message: `/start ${startParam}`,
-          randomId: generateRandomBigInt(),
+          randomId: randomId(),
         }),
       )
       .catch(() => {});
@@ -220,7 +223,7 @@ const measurePing = async (client: TelegramClient, n = 3) => {
   const samples: number[] = [];
   for (let i = 0; i < n; i++) {
     const t = performance.now();
-    await client.invoke(new Api.Ping({ pingId: generateRandomBigInt() }));
+    await client.invoke(new Api.Ping({ pingId: randomId() }));
     samples.push(performance.now() - t);
   }
   return Math.min(...samples);
