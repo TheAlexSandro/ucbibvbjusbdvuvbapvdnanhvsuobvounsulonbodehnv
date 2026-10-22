@@ -80,7 +80,6 @@ const serializeMsg = (msg: any): MessagePayload => {
 
 const botUsername = trueMafia.replace(/^@/, "").toLowerCase();
 const handledRegistrations = new Set<string>();
-const handledAttention = new Set<string>();
 
 const remember = (set: Set<string>, key: string) => {
   set.add(key);
@@ -111,7 +110,7 @@ const randomId = () =>
       BigInt(Math.floor(Math.random() * 2 ** 32)),
   );
 
-const handleRegistrationJoin = (chatId: string, url: string) => {
+const handleRegistrationJoin = (chatId: string, url: string, t0: number) => {
   if (chatId !== state.groupTarget) return;
 
   const startParam = new URL(url).searchParams.get("start");
@@ -125,6 +124,7 @@ const handleRegistrationJoin = (chatId: string, url: string) => {
   for (const slot of slots) {
     if (!slot || disabledSet.has(slot.userId) || !slot.mafiaEntity) continue;
 
+    const tSend = performance.now();
     slot.client
       .invoke(
         new Api.messages.SendMessage({
@@ -133,6 +133,12 @@ const handleRegistrationJoin = (chatId: string, url: string) => {
           randomId: randomId(),
         }),
       )
+      .then(() => {
+        const done = performance.now();
+        log(
+          `[lat] ${slot.userId} dispatch=${(tSend - t0).toFixed(1)}ms rtt=${(done - tSend).toFixed(1)}ms`,
+        );
+      })
       .catch(() => {});
     // slot.client
     //   .invoke(
@@ -249,7 +255,13 @@ const initClient = async (ss: string, idx: number) => {
   };
 
   await client.connect();
+
   if (shuttingDown) return;
+  const sock =
+    (client as any)._sender?._connection?.socket?.socket ??
+    (client as any)._sender?._connection?.socket;
+  sock?.setNoDelay?.(true);
+  log(`[init] noDelay=${Boolean(sock?.setNoDelay)}`);
   const me: any = await client.getMe();
   await client.invoke(new Api.updates.GetState()).catch(() => {});
   const mafiaEntity = await client.getEntity(trueMafia).catch(() => null);
@@ -259,6 +271,12 @@ const initClient = async (ss: string, idx: number) => {
   log(
     `[init] ${me.id} (${me.firstName}) dc=${(client.session as any).dcId} ping=${ping.toFixed(0)}ms workerClient=${idx}`,
   );
+
+  setInterval(() => {
+    for (const s of slots) {
+      s?.client.invoke(new Api.Ping({ pingId: randomId() })).catch(() => {});
+    }
+  }, 3000);
 
   client.addEventHandler(
     (event: any) => {
