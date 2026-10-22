@@ -136,7 +136,6 @@ const handleRegistrationJoin = (chatId: string, url: string, t0: number) => {
       .invoke(
         new Api.messages.SendMessage({
           peer: slot.inputPeer,
-          entities: slot.mafiaEntity,
           message: `/start ${startParam}`,
           randomId: randomId(),
         }),
