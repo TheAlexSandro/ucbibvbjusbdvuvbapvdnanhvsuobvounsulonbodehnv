@@ -257,11 +257,20 @@ const initClient = async (ss: string, idx: number) => {
   await client.connect();
 
   if (shuttingDown) return;
-  const sock =
-    (client as any)._sender?._connection?.socket?.socket ??
-    (client as any)._sender?._connection?.socket;
-  sock?.setNoDelay?.(true);
-  log(`[init] noDelay=${Boolean(sock?.setNoDelay)}`);
+  const findSocket = (root: any, depth = 4, seen = new Set<any>()): any => {
+    if (!root || typeof root !== "object" || seen.has(root) || depth < 0)
+      return null;
+    seen.add(root);
+    if (typeof root.setNoDelay === "function") return root;
+    for (const k of Object.keys(root)) {
+      const found = findSocket(root[k], depth - 1, seen);
+      if (found) return found;
+    }
+    return null;
+  };
+  const sock = findSocket((client as any)._sender);
+  sock?.setNoDelay(true);
+  log(`[init] noDelay=${Boolean(sock)}`);
   const me: any = await client.getMe();
   await client.invoke(new Api.updates.GetState()).catch(() => {});
   const mafiaEntity = await client.getEntity(trueMafia).catch(() => null);
